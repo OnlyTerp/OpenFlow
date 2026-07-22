@@ -12,6 +12,7 @@ from openflow import cli
 from openflow.patch import asar_api
 from openflow.patch.ensure import restore_stock
 from openflow.providers.registry import _chain_for
+from openflow.providers import http_util
 from openflow.server import app
 
 
@@ -53,6 +54,19 @@ class PrivacyTests(unittest.TestCase):
 
     def test_failed_audio_retention_is_off_by_default(self) -> None:
         self.assertIsNone(app.DEBUG_AUDIO_DIR)
+
+
+class TransportTests(unittest.TestCase):
+    def test_released_http_session_is_reused(self) -> None:
+        first = http_util._acquire_session()
+        if first is None:
+            self.skipTest("requests unavailable")
+        http_util._release_session(first, reusable=True)
+        second = http_util._acquire_session()
+        try:
+            self.assertIs(first, second)
+        finally:
+            http_util._release_session(second, reusable=False)
 
 
 class DesktopPatchTests(unittest.TestCase):

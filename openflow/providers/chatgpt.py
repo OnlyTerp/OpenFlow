@@ -23,7 +23,7 @@ TRANSCRIBE_URL = os.environ.get(
     "https://chatgpt.com/backend-api/transcribe",
 )
 STT_TIMEOUT = float(os.environ.get("OPENFLOW_CHATGPT_STT_TIMEOUT", "25"))
-STT_CONNECT = float(os.environ.get("OPENFLOW_CHATGPT_STT_CONNECT", "2.5"))
+STT_CONNECT = float(os.environ.get("OPENFLOW_CHATGPT_STT_CONNECT", "6"))
 USER_AGENT = os.environ.get(
     "OPENFLOW_CHATGPT_UA",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -176,10 +176,12 @@ class ChatGptProvider:
 
                 t0 = time.time()
                 log.info(
-                    "ChatGPT STT attempt %d/%d wav=%d",
+                    "ChatGPT STT attempt %d/%d wav=%d connect=%.1fs read=%.1fs",
                     attempt,
                     attempts,
                     len(wav_bytes),
+                    STT_CONNECT,
+                    STT_TIMEOUT,
                 )
                 result = post(
                     TRANSCRIBE_URL,

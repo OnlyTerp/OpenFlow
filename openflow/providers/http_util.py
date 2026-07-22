@@ -5,13 +5,15 @@ from __future__ import annotations
 import json
 import logging
 import threading
+import queue
 import urllib.error
 import urllib.request
 from typing import Any
 
 log = logging.getLogger("openflow")
 
-_tls = threading.local()
+_SESSION_POOL_SIZE = 4
+_session_pool: queue.LifoQueue[Any] = queue.LifoQueue(maxsize=_SESSION_POOL_SIZE)
 
 
 class HttpError(Exception):
@@ -21,16 +23,28 @@ class HttpError(Exception):
         super().__init__(f"HTTP {code}: {body[:200]}")
 
 
-def session():
+def _acquire_session() -> Any | None:
+    """Borrow one reusable session without sharing it between request threads."""
     try:
         import requests  # type: ignore
     except ImportError:
         return None
-    sess = getattr(_tls, "session", None)
+    try:
+        return _session_pool.get_nowait()
+    except queue.Empty:
+        return requests.Session()
+
+
+def _release_session(sess: Any, *, reusable: bool) -> None:
     if sess is None:
-        sess = requests.Session()
-        _tls.session = sess
-    return sess
+        return
+    if not reusable:
+        sess.close()
+        return
+    try:
+        _session_pool.put_nowait(sess)
+    except queue.Full:
+        sess.close()
 
 
 def post(
@@ -46,7 +60,7 @@ def post(
 ) -> Any:
     """POST; return parsed JSON or raw text depending on expect_json / content-type."""
     headers = dict(headers or {})
-    sess = session()
+    sess = _acquire_session()
     if sess is not None:
         kw: dict = {
             "headers": headers,
@@ -60,11 +74,15 @@ def post(
             kw["data"] = form
         elif data is not None:
             kw["data"] = data
+        reusable = True
         try:
             r = sess.post(url, **kw)
+            body = r.content
         except Exception as e:
+            reusable = False
             raise RuntimeError(f"request failed: {e}") from e
-        body = r.content
+        finally:
+            _release_session(sess, reusable=reusable)
         if r.status_code >= 400:
             raise HttpError(r.status_code, body[:800].decode("utf-8", "replace"))
         ctype = (r.headers.get("Content-Type") or "").lower()
