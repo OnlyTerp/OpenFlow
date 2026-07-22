@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OpenFlow — Sign in</title>
+<style>
+  :root {
+    --bg: #faf9f7;
+    --surface: #fff;
+    --line: rgba(40,30,20,0.09);
+    --text: #1a1714;
+    --text-2: #5c564e;
+    --text-3: #8a837a;
+    --ember: #ff6b2c;
+    --ok: #178a4b;
+    --ok-bg: #e8f7ee;
+    --wait-bg: #fff6ed;
+    --wait: #c45a12;
+    --font: "Figtree", "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100%;
+    background: var(--bg); color: var(--text); font-family: var(--font);
+  }
+  .shell { max-width: 480px; margin: 0 auto; padding: 32px 24px 40px; }
+  html.embed .shell { max-width: none; padding: 20px 20px 28px; }
+
+  .logo { width: 32px; height: 32px; margin-bottom: 16px; }
+  h1 {
+    margin: 0 0 8px; font-size: 26px; font-weight: 720;
+    letter-spacing: -0.03em; line-height: 1.15;
+  }
+  .sub {
+    margin: 0 0 8px; font-size: 15px; line-height: 1.5; color: var(--text-2);
+  }
+  .sub strong { color: var(--text); font-weight: 650; }
+  .safe {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--text-3); margin: 0 0 22px;
+  }
+  .safe::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--ok);
+  }
+
+  .banner {
+    display: none;
+    background: var(--wait-bg); color: var(--wait);
+    border: 1px solid rgba(196,90,18,0.18);
+    border-radius: 14px; padding: 14px 16px; margin-bottom: 14px;
+    font-size: 14px; font-weight: 600; line-height: 1.4;
+  }
+  .banner.show { display: block; }
+  .banner small {
+    display: block; margin-top: 4px; font-weight: 500; opacity: 0.9; font-size: 12.5px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 18px 18px 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 2px rgba(20,14,8,0.04);
+  }
+  .card.ready {
+    border-color: rgba(23,138,75,0.28);
+    background: linear-gradient(180deg, #fff 0%, var(--ok-bg) 160%);
+  }
+  .card.waiting {
+    border-color: rgba(196,90,18,0.25);
+    background: linear-gradient(180deg, #fff 0%, var(--wait-bg) 180%);
+  }
+  .row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .name {
+    font-size: 17px; font-weight: 700; letter-spacing: -0.02em;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .dot {
+    width: 10px; height: 10px; border-radius: 50%; background: #cfc8bf; flex: none;
+  }
+  .card.ready .dot { background: var(--ok); box-shadow: 0 0 0 4px rgba(23,138,75,0.15); }
+  .card.waiting .dot {
+    background: var(--ember);
+    animation: pulse 1.1s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,107,44,0.35); }
+    50% { box-shadow: 0 0 0 6px rgba(255,107,44,0); }
+  }
+  .msg {
+    margin: 10px 0 0; font-size: 13.5px; line-height: 1.45; color: var(--text-2);
+  }
+  .card.ready .msg { color: var(--ok); font-weight: 600; }
+  .card.waiting .msg { color: var(--wait); font-weight: 600; }
+
+  .btn {
+    appearance: none; border: 0; cursor: pointer; font-family: inherit;
+    font-weight: 700; font-size: 14px; padding: 12px 18px; border-radius: 999px;
+    background: var(--ember); color: #fff; white-space: nowrap;
+    transition: transform .12s, opacity .12s;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn:disabled { opacity: 0.5; cursor: default; transform: none; }
+  .btn.done {
+    background: var(--ok-bg); color: var(--ok); cursor: default;
+  }
+  .btn.wide {
+    width: 100%; margin-top: 12px; padding: 14px 18px; font-size: 15px;
+  }
+  .btn.ghost {
+    background: transparent; color: var(--text-3); font-weight: 550; font-size: 13px;
+    padding: 10px 12px;
+  }
+  .btn.dark { background: var(--text); }
+
+  .steps {
+    margin: 0 0 20px; padding: 0; list-style: none;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .steps li {
+    font-size: 13px; color: var(--text-2); display: flex; gap: 10px; align-items: baseline;
+  }
+  .steps b {
+    flex: none; width: 18px; height: 18px; border-radius: 50%;
+    background: rgba(40,30,20,0.06); color: var(--text-3);
+    font-size: 11px; font-weight: 700; display: inline-flex;
+    align-items: center; justify-content: center;
+  }
+
+  .foot {
+    margin-top: 18px; display: flex; flex-direction: column; gap: 8px;
+  }
+  .legal {
+    margin-top: 20px; font-size: 11px; line-height: 1.45; color: var(--text-3);
+  }
+
+  .field { margin-top: 10px; }
+  .field label {
+    display: block; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--text-3); margin: 0 0 4px;
+  }
+  .field input {
+    width: 100%; padding: 10px 12px; border-radius: 10px;
+    border: 1px solid var(--line); font: inherit; font-size: 13px;
+    background: #fff; color: var(--text);
+  }
+  .field-row { display: flex; gap: 8px; }
+  .field-row .field { flex: 1; min-width: 0; }
+  .hint { margin: 8px 0 0; font-size: 11px; color: var(--text-3); line-height: 1.4; }
+  .hint code { font-size: 10px; }
+</style>
+</head>
+<body>
+<main class="shell">
+  <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
+    <defs>
+      <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#FFB25C"/><stop offset="1" stop-color="#FF6B2C"/>
+      </linearGradient>
+    </defs>
+    <circle cx="16" cy="16" r="11.5" fill="none" stroke="url(#g)" stroke-width="2.4"
+      stroke-linecap="round" stroke-dasharray="59 13.3" transform="rotate(-38 16 16)"/>
+    <rect x="10.7" y="12.5" width="2.6" height="7" rx="1.3" fill="url(#g)"/>
+    <rect x="14.7" y="9" width="2.6" height="14" rx="1.3" fill="url(#g)"/>
+    <rect x="18.7" y="11" width="2.6" height="9" rx="1.3" fill="url(#g)"/>
+  </svg>
+
+  <h1>Connect a speech engine</h1>
+  <p class="sub">
+    Cloud: sign in with Grok / ChatGPT / Claude.
+    Local: paste your Whisper server URL and hit <strong>Save &amp; test</strong>.
+  </p>
+  <div class="safe">Cloud passwords never go through OpenFlow</div>
+
+  <ol class="steps">
+    <li><b>1</b> Cloud: Connect → sign in in the browser / app</li>
+    <li><b>2</b> Local: enter Whisper URL → Save &amp; test</li>
+    <li><b>3</b> Come back — status updates automatically</li>
+  </ol>
+
+  <div class="banner" id="banner"></div>
+  <div id="cards"></div>
+
+  <div class="foot">
+    <button type="button" class="btn wide dark" id="btn-done" disabled>Start dictating</button>
+    <button type="button" class="btn ghost" id="btn-skip">Not now</button>
+  </div>
+
+  <p class="legal">
+    Grok · ChatGPT · Claude · or local Whisper. OpenFlow is not those companies.
+  </p>
+</main>
+<script>
+(function () {
+  if (new URLSearchParams(location.search).has("embed")) {
+    document.documentElement.classList.add("embed");
+  }
+
+  const META = {
+    grok: {
+      name: "Grok",
+      idle: "Uses your xAI / SuperGrok login",
+      wait: "Finish signing in in the browser, then come back",
+    },
+    chatgpt: {
+      name: "ChatGPT",
+      idle: "Uses your ChatGPT plan login",
+      wait: "Finish signing in in the browser, then come back",
+    },
+    claude: {
+      name: "Claude",
+      idle: "Uses Claude Desktop (sign in once there)",
+      wait: "Sign into Claude Desktop, then come back",
+    },
+    local: {
+      name: "Local",
+      idle: "Your Whisper server (default :8080)",
+      wait: "Start your local Whisper server, then come back",
+    },
+  };
+
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c =>
+    ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+  let busy = null;
+  let autoContinueTimer = null;
+
+  async function api(path, opts) {
+    const r = await fetch(path, Object.assign({ cache: "no-store" }, opts || {}));
+    const t = await r.text();
+    let j = {};
+    try { j = t ? JSON.parse(t) : {}; } catch (e) { throw new Error("Bad response"); }
+    return j;
+  }
+
+  function setBanner(text, sub) {
+    const el = $("#banner");
+    if (!text) {
+      el.classList.remove("show");
+      el.innerHTML = "";
+      return;
+    }
+    el.classList.add("show");
+    el.innerHTML = esc(text) + (sub ? "<small>" + esc(sub) + "</small>" : "");
+  }
+
+  function render(st) {
+    const map = (st && st.providers) || {};
+    const root = $("#cards");
+
+    // Keep local form values if user is mid-edit
+    const draft = {
+      url: ($("#of-local-url") || {}).value,
+      model: ($("#of-local-model") || {}).value,
+      key: ($("#of-local-key") || {}).value,
+      focus: (document.activeElement && document.activeElement.id) || null,
+    };
+
+    root.innerHTML = "";
+    let anyReady = false;
+    let waitingName = null;
+
+    ["grok", "chatgpt", "claude", "local"].forEach((id) => {
+      const p = map[id] || {};
+      const ready = !!p.ready && p.stt_capable !== false;
+      if (ready) anyReady = true;
+      const flow = p.flow || {};
+      const phase = flow.phase || (ready ? "ready" : "idle");
+      const waiting =
+        id !== "local" &&
+        !ready &&
+        (phase === "browser" || phase === "waiting" || phase === "app" || busy === id);
+
+      let msg = META[id].idle;
+      if (ready) msg = "Connected — ready to dictate";
+      else if (waiting) {
+        msg = flow.detail || META[id].wait;
+        waitingName = META[id].name;
+      } else if (phase === "need_cli" || phase === "error") {
+        msg = flow.detail || p.health_detail || "Something went wrong — tap again";
+      } else if (p.health_detail && !ready) {
+        msg = p.health_detail;
+      }
+
+      const card = document.createElement("div");
+      card.className =
+        "card" +
+        (ready ? " ready" : waiting || (id === "local" && phase === "error") ? " waiting" : "");
+
+      if (id === "local") {
+        const urlVal =
+          draft.url != null && draft.url !== ""
+            ? draft.url
+            : p.url || "http://127.0.0.1:8080/v1/audio/transcriptions";
+        const modelVal =
+          draft.model != null && draft.model !== "" ? draft.model : p.model || "whisper-1";
+        const keyVal = draft.key != null ? draft.key : "";
+        const keyPh = p.has_api_key ? "•••••••• (saved — leave blank to keep)" : "optional";
+        const btnLabel = busy === "local" ? "Testing…" : ready ? "Save & retest" : "Save & test";
+        card.innerHTML =
+          `<div class="row">` +
+            `<div class="name"><span class="dot"></span>Local</div>` +
+            `<span style="font-size:12px;font-weight:700;color:${ready ? "var(--ok)" : "var(--text-3)"}">${ready ? "Ready" : "Needs URL"}</span>` +
+          `</div>` +
+          `<p class="msg">${esc(msg)}</p>` +
+          `<div class="field"><label for="of-local-url">Whisper URL</label>` +
+          `<input id="of-local-url" type="url" spellcheck="false" autocomplete="off" value="${esc(urlVal)}" placeholder="http://127.0.0.1:8080/v1/audio/transcriptions"/></div>` +
+          `<div class="field-row">` +
+            `<div class="field"><label for="of-local-model">Model</label>` +
+            `<input id="of-local-model" type="text" spellcheck="false" autocomplete="off" value="${esc(modelVal)}" placeholder="whisper-1"/></div>` +
+            `<div class="field"><label for="of-local-key">API key</label>` +
+            `<input id="of-local-key" type="password" spellcheck="false" autocomplete="off" value="${esc(keyVal)}" placeholder="${esc(keyPh)}"/></div>` +
+          `</div>` +
+          `<button type="button" class="btn wide" id="of-local-save" ${busy === "local" ? "disabled" : ""}>${esc(btnLabel)}</button>` +
+          `<p class="hint">Any OpenAI-compatible <code>/v1/audio/transcriptions</code> server (faster-whisper, llama.cpp, …)</p>`;
+        root.appendChild(card);
+        return;
+      }
+
+      let label = "Connect";
+      let cls = "btn";
+      let disabled = false;
+      if (ready) {
+        label = "Connected ✓";
+        cls = "btn done";
+        disabled = true;
+      } else if (waiting) {
+        label = "Waiting…";
+        disabled = true;
+      }
+
+      card.innerHTML =
+        `<div class="row">` +
+          `<div class="name"><span class="dot"></span>${esc(META[id].name)}</div>` +
+          `<button type="button" class="${cls}" data-p="${id}" ${disabled ? "disabled" : ""}>${esc(label)}</button>` +
+        `</div>` +
+        `<p class="msg">${esc(msg)}</p>` +
+        (!ready && !waiting && (phase === "need_cli" || /install|not found|CLI/i.test(msg))
+          ? `<button type="button" class="btn wide" data-help="${id}" style="background:#1a1714">Get the app</button>`
+          : "");
+      root.appendChild(card);
+    });
+
+    if (draft.focus && String(draft.focus).indexOf("of-local-") === 0) {
+      try {
+        const el = document.getElementById(draft.focus);
+        if (el) {
+          el.focus();
+          if (typeof el.selectionStart === "number") {
+            const len = el.value.length;
+            el.setSelectionRange(len, len);
+          }
+        }
+      } catch (e) {}
+    }
+
+    const done = $("#btn-done");
+    done.disabled = !anyReady;
+    done.textContent = anyReady ? "Start dictating →" : "Connect one above first";
+
+    if (waitingName) {
+      setBanner(
+        "Look for the sign-in window",
+        "Sign in to " + waitingName + ", then return here. This page updates by itself."
+      );
+    } else {
+      setBanner(null);
+    }
+  }
+
+  async function refresh() {
+    try {
+      const st = await api("/v1/auth/status");
+      render(st);
+      if (busy) {
+        const p = (st.providers || {})[busy];
+        if (p && (p.ready || (p.flow && ["error", "need_cli", "ready"].includes(p.flow.phase)))) {
+          busy = null;
+        }
+      }
+    } catch (e) {
+      $("#cards").innerHTML =
+        `<div class="card"><div class="name">Can't reach OpenFlow</div>` +
+        `<p class="msg">Make sure OpenFlow is running, then reopen this window.</p></div>`;
+      setBanner("OpenFlow isn't running", "Start the app and try again.");
+    }
+  }
+
+  document.addEventListener("click", async (ev) => {
+    const localSave = ev.target.closest("#of-local-save");
+    if (localSave) {
+      if (localSave.disabled) return;
+      const url = (($("#of-local-url") || {}).value || "").trim();
+      if (!url) {
+        ($("#of-local-url") || {}).focus?.();
+        setBanner("URL required", "Paste your Whisper transcriptions endpoint.");
+        return;
+      }
+      busy = "local";
+      localSave.disabled = true;
+      localSave.textContent = "Testing…";
+      setBanner("Testing local STT…", url);
+      const body = { provider: "local", url: url };
+      const model = (($("#of-local-model") || {}).value || "").trim();
+      body.model = model;
+      const key = ($("#of-local-key") || {}).value;
+      if (key) body.api_key = key;
+      try {
+        const res = await api("/v1/auth/connect", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (res && res.ok === false) {
+          setBanner("Local STT not ready", res.error || res.state?.detail || "Check URL and server");
+        } else if (res && res.ready) {
+          setBanner(null);
+        }
+      } catch (e) {
+        setBanner("Couldn't reach OpenFlow", "Is the shim running?");
+      }
+      busy = null;
+      refresh();
+      return;
+    }
+
+    const help = ev.target.closest("button[data-help]");
+    if (help) {
+      const id = help.getAttribute("data-help");
+      try {
+        await api("/v1/auth/connect", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider: id, help: true }),
+        });
+      } catch (e) {}
+      refresh();
+      return;
+    }
+
+    const btn = ev.target.closest("button[data-p]");
+    if (!btn || btn.disabled) return;
+    const id = btn.getAttribute("data-p");
+    if (id === "local") return;
+    busy = id;
+    btn.disabled = true;
+    btn.textContent = "Opening…";
+    setBanner(
+      "Opening sign-in…",
+      "A browser or app window should appear. Sign in, then come back."
+    );
+    try {
+      await api("/v1/auth/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: id }),
+      });
+    } catch (e) {
+      busy = null;
+    }
+    refresh();
+  });
+
+  async function finish(skipped) {
+    try {
+      await api(skipped ? "/v1/auth/skip" : "/v1/auth/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+    } catch (e) {}
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: "openflow-setup-done", skipped: !!skipped }, "*");
+    } else {
+      location.href = "/";
+    }
+  }
+
+  $("#btn-skip").addEventListener("click", () => finish(true));
+  $("#btn-done").addEventListener("click", () => finish(false));
+
+  refresh();
+  setInterval(refresh, 2000);
+})();
+</script>
+</body>
+</html>

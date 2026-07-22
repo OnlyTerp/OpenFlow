@@ -1,0 +1,17 @@
+{
+  "name": "openflow",
+  "version": "0.2.0",
+  "private": true,
+  "description": "OpenFlow — local-first multi-engine dictation controller",
+  "scripts": {
+    "test": "node tools/run-tests.mjs",
+    "patch": "python -m openflow patch",
+    "restore": "python -m openflow restore"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "devDependencies": {
+    "@electron/asar": "^4.2.1"
+  }
+}

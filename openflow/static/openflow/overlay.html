@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark" />
+<title>OpenFlow overlay</title>
+<style>
+  /* OpenFlow dictation HUD — design reference for the desktop shell.
+     Transparent page; the shell shows this as an always-on-top capsule.
+     ?demo=1 cycles states · ?state=listening|processing|done|error · ?engine=grok|chatgpt|claude */
+  :root {
+    --of-bg: rgba(24, 20, 16, 0.82);
+    --of-line: rgba(255, 188, 138, 0.16);
+    --of-text: #f2ede6;
+    --of-text-2: #b3aa9e;
+    --of-text-3: #7d756a;
+    --of-ember: #ff6b2c;
+    --of-ember-2: #ffb25c;
+    --of-ok: #57d98d;
+    --of-err: #ff6e66;
+    --of-font-ui: "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    --of-font-mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: transparent; }
+  body {
+    display: grid;
+    place-items: center;
+    font: 13px/1.4 var(--of-font-ui);
+    color: var(--of-text);
+    -webkit-font-smoothing: antialiased;
+    /* checkerboard so transparency is visible when opened in a plain tab */
+    background-image:
+      linear-gradient(45deg, #141210 25%, transparent 25%, transparent 75%, #141210 75%),
+      linear-gradient(45deg, #141210 25%, #0c0a09 25%, #0c0a09 75%, #141210 75%);
+    background-size: 24px 24px;
+    background-position: 0 0, 12px 12px;
+  }
+
+  .hud {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px 12px 14px;
+    border-radius: 999px;
+    background: var(--of-bg);
+    border: 1px solid var(--of-line);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0,0,0,0.4);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    min-width: 250px;
+    user-select: none;
+    -webkit-user-select: none;
+    animation: hud-in 180ms cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+  @keyframes hud-in {
+    from { transform: translateY(8px) scale(0.97); opacity: 0; }
+    to   { transform: none; opacity: 1; }
+  }
+
+  .mark { width: 22px; height: 22px; flex: none; }
+  .mark svg { width: 100%; height: 100%; display: block; }
+
+  .wave { display: flex; align-items: center; gap: 3px; height: 22px; flex: none; }
+  .wave b {
+    width: 3px; height: 5px; border-radius: 2px;
+    background: linear-gradient(180deg, var(--of-ember-2), var(--of-ember));
+  }
+  .hud[data-state="listening"] .wave b { animation: bounce 0.9s ease-in-out infinite; }
+  .hud[data-state="listening"] .wave b:nth-child(1) { animation-delay: 0ms; }
+  .hud[data-state="listening"] .wave b:nth-child(2) { animation-delay: 110ms; }
+  .hud[data-state="listening"] .wave b:nth-child(3) { animation-delay: 220ms; }
+  .hud[data-state="listening"] .wave b:nth-child(4) { animation-delay: 330ms; }
+  .hud[data-state="listening"] .wave b:nth-child(5) { animation-delay: 440ms; }
+  .hud[data-state="listening"] .wave b:nth-child(6) { animation-delay: 550ms; }
+  .hud[data-state="listening"] .wave b:nth-child(7) { animation-delay: 660ms; }
+  @keyframes bounce { 0%,100% { height: 5px; } 50% { height: 20px; } }
+
+  .hud[data-state="processing"] .wave b { animation: pulse 0.8s ease-in-out infinite; }
+  .hud[data-state="processing"] .wave b:nth-child(2n) { animation-delay: 200ms; }
+  @keyframes pulse { 0%,100% { opacity: 0.35; height: 8px; } 50% { opacity: 1; height: 8px; } }
+
+  .meta { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; }
+  .state { font-weight: 650; font-size: 12.5px; white-space: nowrap; }
+  .engine {
+    font-family: var(--of-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--of-text-3);
+    white-space: nowrap;
+  }
+
+  .timer {
+    margin-left: auto;
+    font-family: var(--of-font-mono);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--of-text-2);
+    flex: none;
+  }
+
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .dot--live { background: var(--of-ember); box-shadow: 0 0 10px rgba(255, 107, 44, 0.8); animation: breathe 1.6s ease-in-out infinite; }
+  @keyframes breathe { 50% { opacity: 0.55; } }
+  .dot--ok  { background: var(--of-ok);  box-shadow: 0 0 10px rgba(87, 217, 141, 0.7); }
+  .dot--err { background: var(--of-err); box-shadow: 0 0 10px rgba(255, 110, 102, 0.7); }
+
+  .hud[data-state="error"] { border-color: rgba(255, 110, 102, 0.45); }
+  .hud[data-state="done"]  { border-color: rgba(87, 217, 141, 0.35); }
+
+  .hint {
+    position: fixed;
+    bottom: 14px; left: 50%; transform: translateX(-50%);
+    font-family: var(--of-font-mono);
+    font-size: 10.5px;
+    color: var(--of-text-3);
+    background: rgba(20, 17, 14, 0.8);
+    border: 1px solid var(--of-line);
+    padding: 4px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+  <div class="hud" id="hud" data-state="listening">
+    <span class="mark">
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#FFB25C"/><stop offset="1" stop-color="#FF6B2C"/>
+        </linearGradient></defs>
+        <circle cx="16" cy="16" r="11.5" fill="none" stroke="url(#g)" stroke-width="2.4"
+          stroke-linecap="round" stroke-dasharray="59 13.3" transform="rotate(-38 16 16)"/>
+        <rect x="9.4" y="13" width="2.6" height="7" rx="1.3" fill="url(#g)"/>
+        <rect x="14.7" y="9.5" width="2.6" height="14" rx="1.3" fill="url(#g)"/>
+        <rect x="20" y="12" width="2.6" height="9" rx="1.3" fill="url(#g)"/>
+      </svg>
+    </span>
+    <span class="dot dot--live" id="dot"></span>
+    <span class="wave" id="wave"><b></b><b></b><b></b><b></b><b></b><b></b><b></b></span>
+    <span class="meta">
+      <span class="state" id="state">Listening…</span>
+      <span class="engine" id="engine">grok · release to paste</span>
+    </span>
+    <span class="timer" id="timer">0.0s</span>
+  </div>
+  <div class="hint" id="hint" hidden>demo — cycles listening → processing → done → error · Esc closes</div>
+
+<script>
+"use strict";
+const q = new URLSearchParams(location.search);
+const hud = document.getElementById("hud");
+const dot = document.getElementById("dot");
+const stateEl = document.getElementById("state");
+const engineEl = document.getElementById("engine");
+const timerEl = document.getElementById("timer");
+const hint = document.getElementById("hint");
+
+const engine = (q.get("engine") || "grok").toLowerCase();
+const NAMES = { grok: "Grok", chatgpt: "ChatGPT", claude: "Claude" };
+
+let t0 = performance.now();
+let ticking = null;
+
+function setState(s) {
+  hud.dataset.state = s;
+  clearInterval(ticking);
+  if (s === "listening") {
+    dot.className = "dot dot--live";
+    stateEl.textContent = "Listening…";
+    engineEl.textContent = engine + " · release to paste";
+    t0 = performance.now();
+    ticking = setInterval(() => {
+      timerEl.textContent = ((performance.now() - t0) / 1000).toFixed(1) + "s";
+    }, 100);
+  } else if (s === "processing") {
+    dot.className = "dot dot--live";
+    stateEl.textContent = "Transcribing…";
+    engineEl.textContent = "via " + (NAMES[engine] || engine);
+    timerEl.textContent = "";
+  } else if (s === "done") {
+    dot.className = "dot dot--ok";
+    stateEl.textContent = "Pasted";
+    engineEl.textContent = (NAMES[engine] || engine) + " · 1.2s";
+    timerEl.textContent = "";
+  } else if (s === "error") {
+    dot.className = "dot dot--err";
+    stateEl.textContent = "Engine error";
+    engineEl.textContent = "see control center · activity";
+    timerEl.textContent = "";
+  }
+}
+
+window.addEventListener("keydown", (e) => { if (e.key === "Escape") window.close(); });
+
+if (q.get("demo")) {
+  hint.hidden = false;
+  const seq = ["listening", "listening", "processing", "done", "listening", "error"];
+  let i = 0;
+  setState(seq[0]);
+  setInterval(() => { i = (i + 1) % seq.length; setState(seq[i]); }, 2600);
+} else {
+  setState(q.get("state") || "listening");
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,62 @@
+# Build / extract artifacts (do not OSS-ship Wispr binaries)
+asar-extract*/
+asar-work*/
+*.asar
+*.asar.*
+app.asar*
+node_modules/
+
+# Runtime / secrets
+logs/
+__pycache__/
+*.pyc
+.env
+.auth/
+**/auth.json
+**/session.json
+**/session.json.bak*
+
+# Private mined data (your real dictation few-shots — never publish)
+format_examples.json
+
+# Vendor code extracted from the prototype shell (never publish)
+use-dictation-*.js
+
+# Legacy brand assets (superseded by openflow-*.png/.ico)
+assets/grok-flow-*
+
+# Voice-assistant experiment (out of scope for v1; contains personal paths/config)
+assistant/
+docs/ASSISTANT.md
+launch-assistant.cmd
+scripts/install-assistant-startup.ps1
+
+# Cookie/session debug tooling (credential-adjacent)
+scripts/_debug_cookie_decrypt.py
+scripts/read_claude_cookies.py
+
+# OS
+.DS_Store
+Thumbs.db
+nul
+app.asar.openflow*
+
+# Agent handoff / private notes (never publish)
+OMP_CONTINUE.md
+CONTINUE.md
+session.md
+
+# Package
+openflow/**/__pycache__/
+*.egg-info/
+
+.venv/
+.pytest_cache/
+.coverage
+htmlcov/
+build/
+dist/
+
+# Workstation-only release helpers and vendor-shell screenshots
+scripts/_restart_clean.ps1
+docs/screens/

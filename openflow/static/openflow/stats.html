@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OpenFlow — Insights</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='11.5' fill='none' stroke='%23FF6B2C' stroke-width='2.6' stroke-linecap='round' stroke-dasharray='59 13.3' transform='rotate(-38 16 16)'/%3E%3Crect x='9.4' y='13' width='2.6' height='7' rx='1.3' fill='%23FF6B2C'/%3E%3Crect x='14.7' y='9.5' width='2.6' height='14' rx='1.3' fill='%23FF6B2C'/%3E%3Crect x='20' y='12' width='2.6' height='9' rx='1.3' fill='%23FF6B2C'/%3E%3C/svg%3E" />
+<style>
+  :root {
+    --bg: #100e0c;
+    --bg-1: #16130f;
+    --bg-2: #1d1915;
+    --line: rgba(255,188,138,.12);
+    --text: #f2ede6;
+    --text-2: #b3aa9e;
+    --text-3: #7d756a;
+    --ember: #ff6b2c;
+    --ember-2: #ffb25c;
+    --ok: #57d98d;
+    --font: "Figtree", "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  /* Hub embed: match stock light shell */
+  html.embed {
+    --bg: #faf9f7;
+    --bg-1: #ffffff;
+    --bg-2: #f3f1ed;
+    --line: rgba(40, 30, 20, 0.08);
+    --text: #1a1714;
+    --text-2: #5c564e;
+    --text-3: #8a837a;
+    --ember: #ff6b2c;
+    --ember-2: #ff8a4c;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100%;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 28px 28px 48px; }
+  html.embed .wrap { padding: 20px 24px 36px; max-width: none; }
+  .back {
+    display: inline-block; color: var(--ember); text-decoration: none;
+    font-size: 13px; font-weight: 550; margin-bottom: 14px;
+  }
+  html.embed .back { display: none; }
+  .kicker {
+    color: var(--ember); font-size: 11px; font-weight: 650;
+    letter-spacing: 0.14em; text-transform: uppercase; margin: 0 0 6px;
+  }
+  h1 {
+    margin: 0 0 6px; font-size: 30px; font-weight: 700;
+    letter-spacing: -0.03em; line-height: 1.15;
+  }
+  html.embed h1 { font-size: 26px; }
+  .src { color: var(--text-3); font-size: 12.5px; margin-bottom: 22px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+    gap: 10px; margin-bottom: 14px;
+  }
+  .stat {
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px 16px 14px;
+    box-shadow: 0 1px 0 rgba(255,255,255,.04);
+  }
+  html.embed .stat {
+    box-shadow: 0 1px 2px rgba(20,14,8,.04);
+  }
+  .stat .v {
+    font-size: 28px; font-weight: 700; letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums; line-height: 1.1;
+  }
+  .stat .l {
+    margin-top: 6px; color: var(--text-3); font-size: 10.5px;
+    font-weight: 650; letter-spacing: 0.12em; text-transform: uppercase;
+  }
+  .card {
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px 18px;
+    margin-top: 12px;
+  }
+  .card h2 {
+    margin: 0 0 12px; font-size: 11px; font-weight: 650;
+    letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-3);
+  }
+  .bars {
+    display: flex; align-items: flex-end; gap: 5px;
+    height: 112px; padding-top: 8px;
+  }
+  .bar {
+    flex: 1; min-width: 5px; border-radius: 4px 4px 0 0;
+    background: linear-gradient(180deg, var(--ember-2), var(--ember));
+    opacity: 0.88; position: relative; transition: opacity .15s;
+  }
+  .bar:hover { opacity: 1; }
+  .bar .tip {
+    display: none; position: absolute; bottom: calc(100% + 6px); left: 50%;
+    transform: translateX(-50%); white-space: nowrap; font-size: 11px;
+    background: var(--bg-2); color: var(--text-2); border: 1px solid var(--line);
+    padding: 4px 8px; border-radius: 8px; z-index: 2;
+  }
+  .bar:hover .tip { display: block; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 720px) { .cols { grid-template-columns: 1fr; } }
+  .row {
+    display: flex; justify-content: space-between; gap: 12px;
+    padding: 9px 2px; border-bottom: 1px solid var(--line); font-size: 13px;
+  }
+  .row:last-child { border-bottom: none; }
+  .row .muted { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .n { font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
+  .empty { text-align: center; padding: 64px 20px; color: var(--text-2); }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; color: var(--text-3); margin-top: 4px;
+  }
+  .pill i {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--ok);
+    display: inline-block;
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <a class="back" href="/">&larr; Control center</a>
+  <div class="kicker">Local insights</div>
+  <h1>Your dictation, on-device</h1>
+  <div class="src">Computed from your local history — nothing leaves this machine.</div>
+  <div id="content"><div class="empty">Loading&hellip;</div></div>
+</main>
+<script>
+(function () {
+  const embed = new URLSearchParams(location.search).has("embed");
+  if (embed) document.documentElement.classList.add("embed");
+
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c =>
+    ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const fmt = (n) => (n == null ? "—" : Number(n).toLocaleString());
+
+  function stat(v, l) {
+    return `<div class="stat"><div class="v">${esc(v)}</div><div class="l">${esc(l)}</div></div>`;
+  }
+
+  function bars(byDay) {
+    const days = (byDay || []).slice(0, 21).reverse();
+    if (!days.length) return "";
+    const max = Math.max(...days.map(d => d.words), 1);
+    return `<div class="card"><h2>Words per day</h2><div class="bars">${
+      days.map(d => {
+        const h = Math.max(3, Math.round((d.words / max) * 100));
+        return `<div class="bar" style="height:${h}%"><span class="tip">${esc(d.date)} · ${fmt(d.words)} words · ${d.dictations}</span></div>`;
+      }).join("")
+    }</div></div>`;
+  }
+
+  function list(title, rows) {
+    if (!rows || !rows.length) return "";
+    return `<div class="card"><h2>${esc(title)}</h2>${rows.join("")}</div>`;
+  }
+
+  async function load() {
+    const el = $("#content");
+    let j;
+    try {
+      const r = await fetch("/v1/insights", { cache: "no-store" });
+      j = await r.json();
+    } catch (e) {
+      el.innerHTML = `<div class="empty">Can't reach the OpenFlow shim on :18765.<br><span class="src">${esc(e.message || e)}</span></div>`;
+      return;
+    }
+    if (!j || !j.available) {
+      el.innerHTML = `<div class="empty">No local history yet.<br><span class="src">${esc(j && j.reason || "Dictate once and stats will show up here.")}</span></div>`;
+      return;
+    }
+    const mins = Math.round((j.total_speech_seconds || 0) / 60);
+    const apps = (j.top_apps || []).map(a =>
+      `<div class="row"><span class="muted">${esc(a.app)}</span><span class="n">${fmt(a.words)} w · ${a.dictations}</span></div>`);
+    const recent = (j.recent || []).map(r =>
+      `<div class="row"><span class="muted">${esc(r.text)}</span><span class="n">${esc(r.app)} · ${fmt(r.words)}w</span></div>`);
+
+    el.innerHTML =
+      `<div class="grid">` +
+        stat(fmt(j.total_words), "Total words") +
+        stat(fmt(j.total_dictations), "Dictations") +
+        stat(j.avg_wpm != null ? j.avg_wpm : "—", "Avg WPM") +
+        stat(j.streak_days != null ? j.streak_days + "d" : "—", "Streak") +
+        stat(fmt(mins) + "m", "Speaking") +
+      `</div>` +
+      `<div class="pill"><i></i> Live from local history</div>` +
+      bars(j.by_day) +
+      `<div class="cols">` +
+        list("Top apps", apps) +
+        list("Recent", recent) +
+      `</div>`;
+  }
+  load();
+})();
+</script>
+</body>
+</html>
