@@ -12,7 +12,7 @@ from openflow import cli
 from openflow.patch import asar_api
 from openflow.patch.ensure import restore_stock
 from openflow.providers.registry import _chain_for
-from openflow.providers import http_util
+from openflow.providers import chatgpt, http_util
 from openflow.server import app
 
 
@@ -67,6 +67,29 @@ class TransportTests(unittest.TestCase):
             self.assertIs(first, second)
         finally:
             http_util._release_session(second, reusable=False)
+
+    def test_chatgpt_transport_retry_waits_before_retrying(self) -> None:
+        with (
+            patch.object(
+                chatgpt,
+                "load_tokens",
+                return_value=("token", None, Path("auth.json")),
+            ) as load_tokens,
+            patch.object(
+                chatgpt,
+                "post",
+                side_effect=[RuntimeError("write timed out"), {"text": "Recovered"}],
+            ) as post,
+            patch.object(chatgpt, "STT_RETRY_DELAY", 0.75),
+            patch.object(chatgpt.time, "sleep") as sleep,
+        ):
+            result = chatgpt.ChatGptProvider().transcribe(b"wav")
+
+        self.assertEqual(result["text"], "Recovered")
+        self.assertEqual(result["provider"], "chatgpt")
+        self.assertEqual(load_tokens.call_count, 2)
+        self.assertEqual(post.call_count, 2)
+        sleep.assert_called_once_with(0.75)
 
 
 class DesktopPatchTests(unittest.TestCase):

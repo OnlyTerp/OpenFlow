@@ -23,7 +23,11 @@ TRANSCRIBE_URL = os.environ.get(
     "https://chatgpt.com/backend-api/transcribe",
 )
 STT_TIMEOUT = float(os.environ.get("OPENFLOW_CHATGPT_STT_TIMEOUT", "25"))
-STT_CONNECT = float(os.environ.get("OPENFLOW_CHATGPT_STT_CONNECT", "6"))
+# urllib3 uses this socket timeout while streaming multipart request bodies.
+STT_CONNECT = float(os.environ.get("OPENFLOW_CHATGPT_STT_CONNECT", "8"))
+STT_RETRY_DELAY = max(
+    0.0, float(os.environ.get("OPENFLOW_CHATGPT_STT_RETRY_DELAY", "1.0"))
+)
 USER_AGENT = os.environ.get(
     "OPENFLOW_CHATGPT_UA",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -224,7 +228,12 @@ class ChatGptProvider:
                 last_err = e
                 log.warning("ChatGPT STT attempt %d failed: %s", attempt, e)
                 if attempt < attempts:
-                    time.sleep(0.12)
+                    delay = STT_RETRY_DELAY * attempt
+                    log.info(
+                        "ChatGPT STT retrying in %.1fs after transport failure",
+                        delay,
+                    )
+                    time.sleep(delay)
                     continue
                 raise
         raise last_err or SttError("ChatGPT STT failed")
