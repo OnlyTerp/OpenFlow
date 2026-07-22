@@ -10,10 +10,11 @@ microphone → desktop shell → OpenFlow shim on 127.0.0.1:18765
                             → selected speech provider
 ```
 
-> **Release status:** OpenFlow 0.2.0 is a Windows preview. The current desktop integration
-> patches a Wispr Flow installation already owned and installed by the user. OpenFlow does
-> not bundle Wispr code or binaries, is not affiliated with Wispr, and may need to be
-> re-patched after a Wispr update.
+> **Release status:** OpenFlow 0.2.0 is the first public release. Its Windows desktop
+> integration patches a Wispr Flow installation already owned and installed by the user.
+> This is OpenFlow's desktop integration—not a secondary or temporary integration.
+> OpenFlow does not bundle Wispr code or binaries, is not affiliated with Wispr, and may
+> need to be re-patched after a Wispr update.
 
 ## What ships
 

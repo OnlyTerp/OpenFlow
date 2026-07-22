@@ -18,8 +18,8 @@ in the report. Use synthetic data and redact local usernames and paths.
 
 ## Supported versions
 
-Security fixes target the latest commit on `main` and the latest tagged preview release. Older
-preview builds may require upgrading rather than a backport.
+Security fixes target the latest commit on `main` and the latest tagged release. Older
+releases may require upgrading rather than a backport.
 
 ## Threat model and safe deployment
 

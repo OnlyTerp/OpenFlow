@@ -42,7 +42,7 @@ Configuration lives at `%APPDATA%\\OpenFlow\\config.json` on Windows. See
 
 ## Desktop integration
 
-The Windows preview uses the explicit `python -m openflow patch` command to integrate with a
-Wispr Flow installation already present on the user's machine. `python -m openflow restore`
-restores the stock backup. OpenFlow does not distribute the third-party app or any patched
-asar; see [OPEN_SOURCE.md](OPEN_SOURCE.md).
+OpenFlow's Windows desktop integration uses the explicit `python -m openflow patch` command
+to integrate with a Wispr Flow installation already present on the user's machine.
+`python -m openflow restore` restores the stock backup. OpenFlow does not distribute the
+third-party app or any patched asar; see [OPEN_SOURCE.md](OPEN_SOURCE.md).

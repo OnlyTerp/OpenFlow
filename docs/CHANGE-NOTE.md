@@ -1,7 +1,7 @@
 # OpenFlow 0.2.0 release notes
 
-OpenFlow 0.2.0 is the first public-preview layout: one Python package, one Windows install
-root, explicit provider selection, and a documented open-source boundary.
+OpenFlow 0.2.0 is the first public release: one Python package, one Windows install root,
+explicit provider selection, and a documented open-source boundary.
 
 ## Runtime
 

@@ -28,7 +28,7 @@ text also goes to Grok; it is disabled by default.
 `openflow/static/openflow/` is a dependency-free SPA (no build step) served by the shim itself
 at `GET /` (and `/ui/*`). It is OpenFlow's local setup and test-bench surface. OS-global
 hotkey, recording overlay, and paste behavior come from the separately installed desktop
-shell in the current preview:
+shell:
 
 | Route | Screen | Backing API |
 |-------|--------|-------------|
@@ -153,11 +153,11 @@ installed payload unless the user deliberately supplies it.
 
 ## Desktop integration
 
-The current Windows preview uses source-only tools under `openflow/patch` to modify a Wispr
-Flow installation already present on the user's machine. The patch redirects the desktop
-shell's transcription request to the loopback shim and applies OpenFlow's local integration
-assets. Patching is an explicit command, creates a stock backup, and does not run silently
-during normal startup.
+OpenFlow's Windows desktop integration uses source-only tools under `openflow/patch` to
+modify a Wispr Flow installation already present on the user's machine. The patch redirects
+the desktop shell's transcription request to the loopback shim and applies OpenFlow's local
+integration assets. Patching is an explicit command, creates a stock backup, and does not
+run silently during normal startup.
 
 No patched asar, extracted vendor source, vendor screenshot, or vendor asset is distributed.
 The patch history and operational constraints are documented in

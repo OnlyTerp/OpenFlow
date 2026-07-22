@@ -478,10 +478,10 @@ function viewSettings() {
     `<button class="of-btn of-btn--ghost of-btn--sm" id="ovPrev" type="button">preview overlay</button></div>` +
     `<div class="of-small of-muted of-mt">` +
     (osb.native
-      ? `Registered with the desktop shell.`
-      : `Stored locally as a preference. A desktop shell (Tauri/Electron) registers the global hotkey and overlay — ` +
-        `this control center ships with <span class="of-mono">window.openflowBridge</span> stubs until that lands. ` +
-        `The overlay preview shows the HUD design the shell will display.`) +
+      ? `Registered with the Windows desktop integration.`
+      : `OpenFlow uses the installed desktop shell for the global hotkey and recording overlay. ` +
+        `This control stores a dashboard preference only; configure the active shortcut in the desktop shell. ` +
+        `The preview shows OpenFlow's overlay design.`) +
     `</div></div>`;
 
   /* about */
@@ -928,8 +928,8 @@ function obRender() {
     const hotkey = osb.savedHotkey();
     body =
       `<div class="of-ob-title">Set your hotkey</div>` +
-      `<p class="of-ob-body">The desktop shell registers this globally. Until the shell ships, the preference is stored locally ` +
-      `and the dictation overlay can be previewed here.</p>` +
+      `<p class="of-ob-body">OpenFlow uses the installed desktop shell for the global hotkey. This dashboard stores ` +
+      `the preference locally; configure the active shortcut in the desktop shell.</p>` +
       `<div class="of-ob-row"><div class="of-grow"><div class="of-name">Push-to-talk</div>` +
       `<div class="of-detail">hold to record · release to paste</div></div>` +
       `<span class="of-hotkey">${hotkey.split("+").map((k) => `<kbd>${esc(k)}</kbd>`).join("")}</span>` +

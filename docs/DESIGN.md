@@ -1,8 +1,8 @@
 # OpenFlow design system — "ember console"
 
 > **Scope.** These tokens style the shim debug UI under `openflow/static/openflow/` and define
-> a future standalone desktop-overlay specification. The current preview does not publish or
-> inject vendor UI assets.
+> OpenFlow's desktop-overlay design. The public repository does not publish or inject vendor
+> UI assets.
 
 Implementation: `openflow/static/openflow/app.css` (tokens + components),
 `overlay.html` (HUD). No framework, no build step; every rule below maps to a CSS custom
