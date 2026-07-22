@@ -2,17 +2,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import socket
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, call, patch
 
 from openflow import __version__
 from openflow import cli
 from openflow.patch import asar_api
 from openflow.patch.ensure import restore_stock
 from openflow.providers.registry import _chain_for
-from openflow.providers import chatgpt, http_util
+from openflow.providers import chatgpt, http_util, registry
 from openflow.server import app
 
 
@@ -68,6 +69,27 @@ class TransportTests(unittest.TestCase):
         finally:
             http_util._release_session(second, reusable=False)
 
+
+    def test_ipv4_preference_keeps_ipv6_fallback(self) -> None:
+        ipv6 = (
+            socket.AF_INET6,
+            socket.SOCK_STREAM,
+            0,
+            "",
+            ("2001:db8::1", 443, 0, 0),
+        )
+        ipv4 = (
+            socket.AF_INET,
+            socket.SOCK_STREAM,
+            0,
+            "",
+            ("192.0.2.1", 443),
+        )
+
+        ordered = http_util._prefer_ipv4([ipv6, ipv4])
+
+        self.assertEqual([row[0] for row in ordered], [socket.AF_INET, socket.AF_INET6])
+
     def test_chatgpt_transport_retry_waits_before_retrying(self) -> None:
         with (
             patch.object(
@@ -87,9 +109,58 @@ class TransportTests(unittest.TestCase):
 
         self.assertEqual(result["text"], "Recovered")
         self.assertEqual(result["provider"], "chatgpt")
-        self.assertEqual(load_tokens.call_count, 2)
+        load_tokens.assert_has_calls([call(force=False), call(force=False)])
         self.assertEqual(post.call_count, 2)
+        self.assertTrue(post.call_args.kwargs["prefer_ipv4"])
         sleep.assert_called_once_with(0.75)
+
+    def test_chatgpt_401_retry_refreshes_tokens(self) -> None:
+        with (
+            patch.object(
+                chatgpt,
+                "load_tokens",
+                return_value=("token", None, Path("auth.json")),
+            ) as load_tokens,
+            patch.object(
+                chatgpt,
+                "post",
+                side_effect=[http_util.HttpError(401), {"text": "Recovered"}],
+            ),
+            patch.object(chatgpt.time, "sleep"),
+        ):
+            result = chatgpt.ChatGptProvider().transcribe(b"wav")
+
+        self.assertEqual(result["text"], "Recovered")
+        load_tokens.assert_has_calls([call(force=False), call(force=True)])
+
+
+class StatusCacheTests(unittest.TestCase):
+    def test_provider_status_poll_reuses_cached_probe(self) -> None:
+        status = Mock()
+        status.as_dict.return_value = {
+            "id": "chatgpt",
+            "ready": True,
+            "stt_capable": True,
+        }
+        provider = Mock()
+        provider.status.return_value = status
+        cfg = {
+            "provider": "chatgpt",
+            "providers": {"chatgpt": {"enabled": True}},
+        }
+        registry.invalidate_status_cache()
+        with (
+            patch.object(registry, "_providers", {"chatgpt": provider}),
+            patch.object(registry, "VALID_PROVIDERS", ("chatgpt",)),
+            patch.object(registry.time, "monotonic", side_effect=[10.0, 10.1, 11.0]),
+        ):
+            first = registry.provider_status_map(cfg=cfg)
+            second = registry.provider_status_map(cfg=cfg)
+        registry.invalidate_status_cache()
+
+        self.assertTrue(first["chatgpt"]["active"])
+        self.assertEqual(first, second)
+        provider.status.assert_called_once_with()
 
 
 class DesktopPatchTests(unittest.TestCase):

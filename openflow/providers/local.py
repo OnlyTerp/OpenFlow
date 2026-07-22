@@ -42,27 +42,27 @@ def _local_cfg() -> dict[str, Any]:
     return p if isinstance(p, dict) else {}
 
 
-def _url() -> str:
-    p = _local_cfg()
-    u = p.get("url") or DEFAULT_URL
-    return str(u).strip()
+def _url(cfg: dict[str, Any] | None = None) -> str:
+    cfg = cfg if cfg is not None else _local_cfg()
+    value = cfg.get("url") or DEFAULT_URL
+    return str(value).strip()
 
 
-def _model() -> str | None:
-    p = _local_cfg()
-    m = p.get("model") or DEFAULT_MODEL
-    return str(m).strip() if m else None
+def _model(cfg: dict[str, Any] | None = None) -> str | None:
+    cfg = cfg if cfg is not None else _local_cfg()
+    value = cfg.get("model") or DEFAULT_MODEL
+    return str(value).strip() if value else None
 
 
-def _api_key() -> str | None:
-    p = _local_cfg()
-    k = p.get("api_key") or os.environ.get("OPENFLOW_LOCAL_STT_KEY")
-    return str(k).strip() if k else None
+def _api_key(cfg: dict[str, Any] | None = None) -> str | None:
+    cfg = cfg if cfg is not None else _local_cfg()
+    value = cfg.get("api_key") or os.environ.get("OPENFLOW_LOCAL_STT_KEY")
+    return str(value).strip() if value else None
 
 
-def _probe() -> tuple[bool, str]:
+def _probe(url: str | None = None) -> tuple[bool, str]:
     """Best-effort readiness: config present + host looks reachable."""
-    url = _url()
+    url = url if url is not None else _url()
     if not url:
         return False, "Set providers.local.url in OpenFlow config"
     # Light TCP-ish probe via OPTIONS/GET on origin (many servers 404 — still means up)
@@ -91,7 +91,7 @@ class LocalProvider:
     def status(self) -> ProviderStatus:
         p = _local_cfg()
         enabled = p.get("enabled", True)
-        url = _url()
+        url = _url(p)
         if not enabled:
             return ProviderStatus(
                 id=self.id,
@@ -101,7 +101,7 @@ class LocalProvider:
                 auth_path=None,
                 stt_capable=True,
             )
-        ok, detail = _probe()
+        ok, detail = _probe(url)
         return ProviderStatus(
             id=self.id,
             label=self.label,
@@ -109,12 +109,13 @@ class LocalProvider:
             detail=detail,
             auth_path=url,
             stt_capable=True,
-            extra={"url": url, "model": _model()},
+            extra={"url": url, "model": _model(p)},
         )
 
     def transcribe(self, wav_bytes: bytes, language: str = "en") -> dict:
-        url = _url()
-        model = _model()
+        cfg = _local_cfg()
+        url = _url(cfg)
+        model = _model(cfg)
         if not url:
             raise SttError("Local STT URL not configured")
 
@@ -152,7 +153,7 @@ class LocalProvider:
             "Content-Length": str(len(body)),
             "Accept": "application/json",
         }
-        key = _api_key()
+        key = _api_key(cfg)
         if key:
             headers["Authorization"] = f"Bearer {key}"
 

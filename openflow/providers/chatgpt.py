@@ -24,10 +24,16 @@ TRANSCRIBE_URL = os.environ.get(
 )
 STT_TIMEOUT = float(os.environ.get("OPENFLOW_CHATGPT_STT_TIMEOUT", "25"))
 # urllib3 uses this socket timeout while streaming multipart request bodies.
-STT_CONNECT = float(os.environ.get("OPENFLOW_CHATGPT_STT_CONNECT", "8"))
+STT_CONNECT = float(os.environ.get("OPENFLOW_CHATGPT_STT_CONNECT", "6"))
 STT_RETRY_DELAY = max(
-    0.0, float(os.environ.get("OPENFLOW_CHATGPT_STT_RETRY_DELAY", "1.0"))
+    0.0, float(os.environ.get("OPENFLOW_CHATGPT_STT_RETRY_DELAY", "0.25"))
 )
+PREFER_IPV4 = os.environ.get("OPENFLOW_CHATGPT_PREFER_IPV4", "true").lower() in {
+    "1",
+    "true",
+    "yes",
+}
+DEVICE_ID = os.environ.get("OPENFLOW_OAI_DEVICE_ID", "openflow-desktop")
 USER_AGENT = os.environ.get(
     "OPENFLOW_CHATGPT_UA",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -159,33 +165,33 @@ class ChatGptProvider:
     def transcribe(self, wav_bytes: bytes, language: str = "en") -> dict:
         last_err: Exception | None = None
         attempts = max(1, STT_RETRIES + 1)
+        force_token_reload = False
+        language = language or "en"
+        form = {"language": language}
+        files = {"file": ("dictation.wav", wav_bytes, "audio/wav")}
+
         for attempt in range(1, attempts + 1):
-            force = attempt > 1
             try:
-                access, account_id, _ = load_tokens(force=force)
+                access, account_id, _ = load_tokens(force=force_token_reload)
                 headers = {
                     "Authorization": f"Bearer {access}",
                     "User-Agent": USER_AGENT,
                     "Accept": "application/json, text/plain, */*",
-                    "OAI-Language": language or "en",
-                    "OAI-Device-Id": os.environ.get(
-                        "OPENFLOW_OAI_DEVICE_ID", "openflow-desktop"
-                    ),
+                    "OAI-Language": language,
+                    "OAI-Device-Id": DEVICE_ID,
                 }
                 if account_id:
                     headers["ChatGPT-Account-Id"] = account_id
 
-                form = {"language": language or "en"}
-                files = {"file": ("dictation.wav", wav_bytes, "audio/wav")}
-
-                t0 = time.time()
+                t0 = time.perf_counter()
                 log.info(
-                    "ChatGPT STT attempt %d/%d wav=%d connect=%.1fs read=%.1fs",
+                    "ChatGPT STT attempt %d/%d wav=%d connect=%.1fs read=%.1fs route=%s",
                     attempt,
                     attempts,
                     len(wav_bytes),
                     STT_CONNECT,
                     STT_TIMEOUT,
+                    "ipv4-preferred" if PREFER_IPV4 else "system",
                 )
                 result = post(
                     TRANSCRIBE_URL,
@@ -195,6 +201,7 @@ class ChatGptProvider:
                     timeout=STT_TIMEOUT,
                     connect_timeout=STT_CONNECT,
                     expect_json=True,
+                    prefer_ipv4=PREFER_IPV4,
                 )
                 text = ""
                 if isinstance(result, dict):
@@ -210,7 +217,9 @@ class ChatGptProvider:
                     text = result
                 text = (text or "").strip()
                 log.info(
-                    "ChatGPT STT ok t=%.2fs chars=%d", time.time() - t0, len(text)
+                    "ChatGPT STT ok t=%.2fs chars=%d",
+                    time.perf_counter() - t0,
+                    len(text),
                 )
                 return {"text": text, "language": language, "provider": "chatgpt"}
             except HttpError as e:
@@ -221,6 +230,7 @@ class ChatGptProvider:
                 )
                 log.error("ChatGPT STT HTTP %s: %s", e.code, e.body[:300])
                 if e.code in (401, 429, 500, 502, 503) and attempt < attempts:
+                    force_token_reload = e.code == 401
                     time.sleep(0.15)
                     continue
                 raise last_err from e
@@ -230,7 +240,7 @@ class ChatGptProvider:
                 if attempt < attempts:
                     delay = STT_RETRY_DELAY * attempt
                     log.info(
-                        "ChatGPT STT retrying in %.1fs after transport failure",
+                        "ChatGPT STT retrying in %.2fs after transport failure",
                         delay,
                     )
                     time.sleep(delay)

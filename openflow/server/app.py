@@ -401,6 +401,11 @@ log = logging.getLogger("openflow")
 FORMAT_DATA = load_format_examples()
 LEXICON_RULES = _compile_lexicon()
 _examples_mtime: float | None = None
+_EXAMPLE_RELOAD_INTERVAL_S = max(
+    0.0, float(os.environ.get("OPENFLOW_EXAMPLE_RELOAD_INTERVAL", "1.0"))
+)
+_examples_checked_at = 0.0
+_examples_reload_lock = threading.Lock()
 try:
     _examples_mtime = EXAMPLES_PATH.stat().st_mtime
 except OSError:
@@ -449,22 +454,29 @@ def _metrics_note(**kwargs) -> None:
 
 
 def maybe_reload_examples() -> None:
-    """Hot-reload format_examples.json when it changes on disk (no restart)."""
-    global FORMAT_DATA, LEXICON_RULES, _examples_mtime
-    try:
-        mtime = EXAMPLES_PATH.stat().st_mtime
-    except OSError:
+    """Hot-reload examples while avoiding a filesystem stat on every dictation."""
+    global FORMAT_DATA, LEXICON_RULES, _examples_checked_at, _examples_mtime
+    now = time.monotonic()
+    if now - _examples_checked_at < _EXAMPLE_RELOAD_INTERVAL_S:
         return
-    if _examples_mtime is not None and mtime <= _examples_mtime:
-        return
-    FORMAT_DATA = load_format_examples()
-    LEXICON_RULES = _compile_lexicon()
-    _examples_mtime = mtime
-    log.info(
-        "Reloaded format examples: %d few-shots, %d lexicon rules",
-        len(FORMAT_DATA.get("examples") or []),
-        len(LEXICON_RULES),
-    )
+    with _examples_reload_lock:
+        if now - _examples_checked_at < _EXAMPLE_RELOAD_INTERVAL_S:
+            return
+        _examples_checked_at = now
+        try:
+            mtime = EXAMPLES_PATH.stat().st_mtime
+        except OSError:
+            return
+        if _examples_mtime is not None and mtime <= _examples_mtime:
+            return
+        FORMAT_DATA = load_format_examples()
+        LEXICON_RULES = _compile_lexicon()
+        _examples_mtime = mtime
+        log.info(
+            "Reloaded format examples: %d few-shots, %d lexicon rules",
+            len(FORMAT_DATA.get("examples") or []),
+            len(LEXICON_RULES),
+        )
 
 
 def _setup_file_logging() -> None:
@@ -964,7 +976,7 @@ def handle_transcribe(req: dict) -> dict:
     log.info(
         "audio wav=%d bytes est=%.1fs language=%s",
         len(wav),
-        max(0, len(wav) - 44) / 32000.0,
+        audio_secs,
         language,
     )
     try:
@@ -1046,7 +1058,7 @@ def handle_transcribe(req: dict) -> dict:
 
     detected = stt.get("language") or language
     asr_time = time.time() - t0
-    full_asr = local_light_cleanup(_join_prev_and_chunk(prev_asr, chunk_asr))
+    full_asr = _join_prev_and_chunk(prev_asr, chunk_asr)
 
     log.info(
         "chunk audio=%.1fs prev_asr=%d chunk_asr=%d full_asr=%d format=%s",
@@ -1315,6 +1327,7 @@ class Handler(BaseHTTPRequestHandler):
             loc_key = (patch or {}).get("api_key") if isinstance(patch, dict) else None
             try:
                 from openflow.auth import start_connect
+                from openflow.providers.registry import invalidate_status_cache
 
                 result = start_connect(
                     str(provider or ""),
@@ -1323,6 +1336,7 @@ class Handler(BaseHTTPRequestHandler):
                     model=str(loc_model) if loc_model is not None else None,
                     api_key=str(loc_key) if loc_key is not None else None,
                 )
+                invalidate_status_cache()
                 # Local may return ok=False when the server is offline — still 200
                 # so the UI can show the error detail without treating it as HTTP fail.
                 code = 200
@@ -1498,12 +1512,12 @@ class Handler(BaseHTTPRequestHandler):
 
         if path in ("/health", "/healthz"):
             try:
-                from openflow.config import active_provider_id, load_config
+                from openflow.config import load_config
                 from openflow.providers.registry import provider_status_map, stats_snapshot
 
                 cfg = load_config()
-                providers = provider_status_map()
-                active = active_provider_id()
+                active = cfg.get("provider") or "grok"
+                providers = provider_status_map(cfg=cfg)
                 snap = stats_snapshot()
             except Exception as e:
                 log.exception("health providers")
@@ -1512,11 +1526,7 @@ class Handler(BaseHTTPRequestHandler):
                 cfg = {}
                 snap = {}
                 log.warning("%s", e)
-            try:
-                load_bearer()
-                grok_auth = True
-            except Exception:
-                grok_auth = False
+            grok_auth = bool((providers.get("grok") or {}).get("ready"))
             self._send(
                 200,
                 {
@@ -1533,7 +1543,8 @@ class Handler(BaseHTTPRequestHandler):
                     "llm_format": LLM_FORMAT,
                     "uptime_s": round(time.time() - float(_metrics["started_at"]), 1),
                     "requests": _metrics["requests"],
-                    "last_provider": snap.get("last_provider") or _metrics.get("last_provider"),
+                    "last_provider": snap.get("last_provider")
+                    or _metrics.get("last_provider"),
                     "last_stt_ok": snap.get("last_ok"),
                     "last_stt_latency_s": snap.get("last_latency_s"),
                     "last_stt_error": snap.get("last_error"),
@@ -1543,15 +1554,17 @@ class Handler(BaseHTTPRequestHandler):
 
         if path.rstrip("/") in ("/v1/providers", "/providers"):
             try:
-                from openflow.config import active_provider_id
+                from openflow.config import load_config
                 from openflow.providers.registry import provider_status_map
 
+                cfg = load_config()
+                active = cfg.get("provider") or "grok"
                 self._send(
                     200,
                     {
                         "ok": True,
-                        "active": active_provider_id(),
-                        "providers": provider_status_map(),
+                        "active": active,
+                        "providers": provider_status_map(cfg=cfg, force=True),
                     },
                 )
             except Exception as e:
