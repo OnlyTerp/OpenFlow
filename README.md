@@ -1,30 +1,32 @@
 # OpenFlow
 
-**Local-first, multi-engine dictation for Windows.** OpenFlow routes speech from a desktop
-dictation shell to Grok, ChatGPT, Claude Desktop, or an OpenAI-compatible local Whisper
-endpoint. The controller and provider integrations run on your machine; OpenFlow has no
-hosted service.
+**OpenFlow is a local-first Electron desktop dictation app for Windows.** Hold the
+global shortcut, speak, and OpenFlow pastes the transcript into the app you are using.
+The installed Electron app is the product surface: dictation history, engine switching,
+dictionary, snippets, style, transforms, scratchpad, settings, and the recording overlay
+all live there. OpenFlow has no hosted product and no browser product.
 
 ```text
-microphone → desktop shell → OpenFlow shim on 127.0.0.1:18765
-                            → selected speech provider
+microphone → OpenFlow Electron app → loopback shim on 127.0.0.1:18765
+                                   → selected speech engine
+                                   → paste at cursor
 ```
 
-> **Release status:** OpenFlow 0.2.0 is the first public release. Its Windows desktop
-> integration patches a Wispr Flow installation already owned and installed by the user.
-> This is OpenFlow's desktop integration—not a secondary or temporary integration.
-> OpenFlow does not bundle Wispr code or binaries, is not affiliated with Wispr, and may
-> need to be re-patched after a Wispr update.
+> **Release status:** OpenFlow 0.2.0 integrates with a Wispr Flow installation already
+> owned and installed by the user. The explicit local patch turns that installed Electron
+> shell into the OpenFlow desktop experience; it is not a secondary interface. OpenFlow
+> does not bundle Wispr code or binaries, is not affiliated with Wispr, and may need to be
+> re-patched after a Wispr update.
 
 ## What ships
 
 | Component | Purpose |
 |---|---|
-| `openflow/server` | Loopback-only HTTP transcription shim and debug dashboard |
+| `openflow/server` | Loopback-only transcription shim used by the Electron app |
 | `openflow/providers` | Grok, ChatGPT, Claude Desktop, and local Whisper adapters |
-| `openflow/patch` | Source-only tooling that modifies the user's local desktop install |
-| `openflow/static` | Dependency-free local status, setup, and test-bench UI |
-| `openflow/host.py` | Silent Windows launcher for the shim and desktop shell |
+| `openflow/patch` | Source-only tooling that integrates the user's installed Electron app |
+| `openflow/static` | Developer-only loopback diagnostics and test bench; **not product UI** |
+| `openflow/host.py` | Silent launcher for the shim and OpenFlow Electron app |
 
 No proprietary asar, extracted vendor source, credentials, recordings, or dictation history
 belongs in this repository.
@@ -81,20 +83,23 @@ The installed launcher is:
 %LOCALAPPDATA%\OpenFlow\launch-openflow.vbs
 ```
 
-### Connect a speech provider
+### Choose a speech engine
 
-Open the local dashboard at <http://127.0.0.1:18765/> after the shim starts. The public
-integration keeps the desktop application's account and subscription UI stock.
+Use the **Speech Engine** control inside the OpenFlow Electron app to switch among Grok,
+GPT, Claude, and Local. The selected engine is authoritative unless you explicitly configure
+fallback providers.
+
+Provider authentication still uses each provider's existing local session:
 
 | Provider | Connection path |
 |---|---|
 | Grok | `grok login --oauth` |
 | ChatGPT | `codex login` |
 | Claude | Sign in to Claude Desktop |
-| Local | Enter an OpenAI-compatible `/v1/audio/transcriptions` URL |
+| Local | Configure an OpenAI-compatible `/v1/audio/transcriptions` URL |
 
-Select an engine before dictating. The selected provider is authoritative unless you
-explicitly configure fallback providers.
+The loopback page at `127.0.0.1:18765` exists only for development diagnostics and recovery.
+It is not the OpenFlow product and must not be used in product screenshots or marketing.
 
 ## Commands
 
@@ -144,7 +149,7 @@ python -m openflow --help
 python -m openflow serve
 ```
 
-Then open <http://127.0.0.1:18765/> and exercise the local status/setup surface.
+For diagnostics only, open <http://127.0.0.1:18765/> and exercise the loopback test bench.
 
 Architecture and design references:
 

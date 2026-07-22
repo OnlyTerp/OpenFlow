@@ -1,9 +1,10 @@
-# Windows desktop integration
+# OpenFlow Electron desktop integration
 
-OpenFlow 0.2 uses a Wispr Flow installation already present on the user's Windows machine for
-global push-to-talk, the recording overlay, and paste-at-cursor behavior. The public
-integration changes the local transcription route and required timeouts only. It does not
-ship a desktop binary.
+OpenFlow 0.2 uses a Wispr Flow installation already present on the user's Windows machine as
+its Electron shell for global push-to-talk, the recording overlay, dictation history,
+engine switching, and paste-at-cursor behavior. This installed Electron experience is the
+OpenFlow product surface. The public repository ships source-only integration tooling, not
+the third-party desktop binary.
 
 ## Boundary
 
@@ -42,11 +43,11 @@ python -m openflow start
 ```
 
 The install root is `%LOCALAPPDATA%\\OpenFlow`. Desktop and Startup shortcuts point to
-`launch-openflow.vbs` there. The launcher starts the shim without a console window and then
-opens the existing desktop application.
+`launch-openflow.vbs` there. The launcher starts the shim without a console window and opens
+the OpenFlow Electron app.
 
-Use the setup dashboard at <http://127.0.0.1:18765/> to connect and select a speech provider.
-The stock desktop UI is not replaced or published by OpenFlow.
+Choose Grok, GPT, Claude, or Local from the app's **Speech Engine** control. The loopback page
+at <http://127.0.0.1:18765/> is developer diagnostics only and is not a product interface.
 
 ## After a desktop-app update
 

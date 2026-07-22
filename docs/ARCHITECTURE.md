@@ -1,21 +1,20 @@
 # OpenFlow architecture
 
-OpenFlow is three cooperating layers, each replaceable on its own:
+OpenFlow is three cooperating layers. The Electron desktop app is the sole product surface:
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│ PRESENTATION                                                       │
-│  user-installed desktop shell ───── hotkey · overlay · paste          │
-│  OpenFlow local UI (openflow/static) ─ status · engine · test bench   │
-│  overlay.html ───────────────────── future standalone HUD spec         │
+│ PRODUCT — OpenFlow Electron desktop app                           │
+│  global hotkey · recording overlay · dictation history · paste   │
+│  engine switch · dictionary · snippets · style · transforms      │
 ├──────────────────────────────────────────────────────────────────┤
-│ LOCAL API  —  http://127.0.0.1:18765                               │
-│  openflow/server/app.py ── /health /v1/providers /v1/config /metrics │
-│                            POST .../run_remote                         │
+│ LOCAL API  —  http://127.0.0.1:18765                              │
+│  openflow/server/app.py ── /health /v1/providers /v1/config       │
+│                            /metrics · POST .../run_remote           │
 ├──────────────────────────────────────────────────────────────────┤
-│ PROVIDERS  —  openflow/providers registry                           │
-│  grok · chatgpt · claude · local OpenAI-compatible Whisper           │
-│  deterministic local cleanup; optional explicit Grok format pass     │
+│ PROVIDERS  —  openflow/providers registry                         │
+│  grok · chatgpt · claude · local OpenAI-compatible Whisper        │
+│  deterministic local cleanup; optional explicit Grok format pass  │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -23,12 +22,13 @@ Everything binds to loopback by default. Audio egress goes only to the selected 
 provider and explicit fallbacks. If the optional Grok LLM format pass is enabled, transcript
 text also goes to Grok; it is disabled by default.
 
-## Local setup UI
+## Developer diagnostics — not product UI
 
-`openflow/static/openflow/` is a dependency-free SPA (no build step) served by the shim itself
-at `GET /` (and `/ui/*`). It is OpenFlow's local setup and test-bench surface. OS-global
-hotkey, recording overlay, and paste behavior come from the separately installed desktop
-shell:
+`openflow/static/openflow/` is a dependency-free loopback diagnostic surface served by the
+shim at `GET /` (and `/ui/*`). It exists for provider recovery, API inspection, and the
+microphone test bench. Normal dictation, engine switching, history, overlays, and settings
+belong to the installed OpenFlow Electron app. Never use this diagnostic surface in product
+screenshots, demos, or marketing.
 
 | Route | Screen | Backing API |
 |-------|--------|-------------|
@@ -43,19 +43,6 @@ The test bench captures mic audio in the browser, resamples to **16 kHz mono PCM
 sends. A generated test tone does the same without a mic, so CI/headless can smoke the full
 pipeline.
 
-### `window.openflowBridge` (shell contract)
-
-The future desktop shell injects this object; the control center already probes for it:
-
-```ts
-interface OpenFlowBridge {
-  registerHotkey(combo: string): Promise<unknown>;  // OS-global push-to-talk
-  pasteText(text: string): Promise<unknown>;        // paste at cursor, focused app
-}
-```
-
-Absent the bridge: hotkey combos persist to `localStorage` as preferences (labelled as a
-local stub), and "paste" degrades to clipboard write with an explicit toast. No silent fakes.
 
 ## Shim
 
@@ -166,8 +153,8 @@ The patch history and operational constraints are documented in
 
 ## Platform notes
 
-- The shim binds the **OS where the shell runs**. For a Windows shell, run the shim with
+- The shim binds to the **same OS** as the Electron app. For Windows, run the shim with
   Windows Python — WSL `127.0.0.1` is a different loopback under NAT networking.
-- Auth tokens are read from the user's own CLI/desktop sessions; sync `~/.grok/auth.json` /
+- Auth tokens come from the user's own CLI/desktop sessions; sync `~/.grok/auth.json` /
   `~/.codex/auth.json` to the OS running the shim.
-- Static UI is plain web assets: wrapping in Tauri later needs no rewrite, only the bridge.
+- The static loopback surface is developer diagnostics only. It is not a second product shell.

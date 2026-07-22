@@ -2,7 +2,7 @@
   "name": "openflow",
   "version": "0.2.0",
   "private": true,
-  "description": "OpenFlow — local-first multi-engine dictation controller",
+  "description": "OpenFlow — local-first multi-engine Electron dictation for Windows",
   "scripts": {
     "test": "node tools/run-tests.mjs",
     "patch": "python -m openflow patch",

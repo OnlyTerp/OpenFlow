@@ -1,8 +1,8 @@
 # OpenFlow design system — "ember console"
 
-> **Scope.** These tokens style the shim debug UI under `openflow/static/openflow/` and define
-> OpenFlow's desktop-overlay design. The public repository does not publish or inject vendor
-> UI assets.
+> **Scope.** These tokens style the developer-only shim diagnostics under
+> `openflow/static/openflow/` and define OpenFlow's desktop-overlay design. The loopback page
+> is not the product UI and must never be used in product screenshots, demos, or marketing.
 
 Implementation: `openflow/static/openflow/app.css` (tokens + components),
 `overlay.html` (HUD). No framework, no build step; every rule below maps to a CSS custom

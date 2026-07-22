@@ -87,12 +87,12 @@ Do not license or embed a display font for v1; the system's restraint is the ide
 
 ## Differentiation rules (hard requirements)
 
-1. No third-party trademarks, logos, screenshots, or marketing phrases in the repo or UI.
-2. No layout traced from another dictation app's screens; design from these tokens and the
-   product requirements in [DESIGN.md](DESIGN.md).
+1. The OpenFlow Electron app is the product surface. Product media must show that installed
+   app, its recording overlay, or real paste-at-cursor behavior—never the loopback debug page.
+2. Do not publish extracted vendor source, vendor binaries, unmodified vendor screenshots,
+   or third-party marketing assets.
 3. Provider names appear only nominatively ("send audio to ChatGPT"), never as decoration.
 4. The words "Wispr" or "Flow" as a product name appear only where required for compatibility,
    historical context, or legal clarity.
-5. Do not publish screenshots of the third-party desktop shell. Until OpenFlow has a
-   standalone shell, documentation may use only screenshots of OpenFlow-authored local UI and
-   must label that UI accurately.
+5. Repository screenshots must show the OpenFlow integration clearly and must not expose
+   private transcript history, credentials, or third-party account data.
