@@ -195,7 +195,7 @@ class DesktopPatchTests(unittest.TestCase):
                 b"{modelId:t,environment:n,url:e}}}",
                 b"TRANSCRIPTION_TIMEOUT=1e4",
                 b',V=3e4,G=3e4,Y=12e4,K=6e4,Z=3145728,X=20971520,'
-                b'J="Pre-Login Feedback",ee=200,te=24e3',
+                b'J="Pre-Login Feedback",ee=200,te=24e3}',
                 patch_asr.CSP_CONNECT_END,
                 patch_asr.CSP_FRAME_END,
                 patch_asr._UPDATER_OLD,

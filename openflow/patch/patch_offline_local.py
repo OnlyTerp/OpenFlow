@@ -76,7 +76,7 @@ _PATCHES_HUB = [
     (
         b"if(e.user.onboardingCompleted&&!mn)return(0,Y.jsx)(tme,{initialPage:n})",
         b"if(true/*grok-flow-skip-onboarding*/)return(0,Y.jsx)(tme,{initialPage:n})",
-        "skip onboarding→main",
+        "skip onboarding -> main",
     ),
     (
         b"if(Tn||!1===p)return(0,Y.jsx)(Hs,{})",
@@ -96,12 +96,12 @@ _PATCHES_HUB = [
     (
         b'Hs=()=>{const{t:e}=(0,v.Bd)("onboarding")',
         b'Hs=()=>{return null/*' + NOLOGIN + b'*/;const{t:e}=(0,v.Bd)("onboarding")',
-        "Hs→null",
+        "Hs -> null",
     ),
     (
         b"case k.PW.WelcomeBasic:return(0,Y.jsx)(XD,{})",
         b"case k.PW.WelcomeBasic:return(0,Y.jsx)(tme,{initialPage:void 0})/*" + NOLOGIN + b"*/",
-        "WelcomeBasic→main",
+        "WelcomeBasic -> main",
     ),
     (
         b'm(!1),kn.m.info("User is not signed in")',
