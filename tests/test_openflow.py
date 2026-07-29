@@ -172,18 +172,112 @@ class DesktopPatchTests(unittest.TestCase):
             newest.mkdir()
             self.assertEqual(asar_api.newest_app_dir(root), newest)
 
-    def test_verification_rejects_subscription_bypass_markers(self) -> None:
+    def _build_stock_extract(self, extract: Path) -> None:
+        """Synthetic stock 1.6.122-shaped asar extraction for the pipeline."""
+        from openflow.patch import inject, patch_asr, patch_offline_local
+
+        main_dir = extract / ".webpack" / "main"
+        hub = extract / ".webpack" / "renderer" / "hub"
+        overlay = extract / ".webpack" / "renderer" / "overlay"
+        for d in (main_dir, hub, overlay):
+            d.mkdir(parents=True)
+
+        stock_main = b";".join(
+            [
+                patch_asr.OLD_PROD,
+                patch_asr.OLD_STAGE,
+                b"if(!e.app.isPackaged){const t=process.env.FLOW_GRPC_URL_OVERRIDE",
+                b"if(1){const e=process.env.FLOW_GRPC_URL_OVERRIDE?.trim();"
+                b'if(e){const t=process.env.FLOW_GRPC_MODEL_ID_OVERRIDE?.trim()??"",'
+                b'n=process.env.FLOW_GRPC_ENVIRONMENT_OVERRIDE?.trim()??"";'
+                b'return ze().info("Using dev gRPC route override from env",'
+                b"{customAttributes:{url:e,modelId:t,environment:n}}),"
+                b"{modelId:t,environment:n,url:e}}}",
+                b"TRANSCRIPTION_TIMEOUT=1e4",
+                b',V=3e4,G=3e4,Y=12e4,K=6e4,Z=3145728,X=20971520,'
+                b'J="Pre-Login Feedback",ee=200,te=24e3',
+                patch_asr.CSP_CONNECT_END,
+                patch_asr.CSP_FRAME_END,
+                patch_asr._UPDATER_OLD,
+            ]
+            + [old for old, _new, _label in patch_offline_local._PATCHES_MAIN]
+        )
+        (main_dir / "index.js").write_bytes(stock_main)
+
+        stock_hub = b";".join(
+            [old for old, _new, _label in patch_offline_local._PATCHES_HUB]
+            + [old for old, _new, _marker in inject._HUB_PATCHES]
+            + [b'"Wispr Flow"', b'"hub_plan_name_basic":"Basic"']
+        )
+        (hub / "index.js").write_bytes(stock_hub)
+        (hub / "index.html").write_text(
+            "<html><head></head><body></body></html>", encoding="utf-8"
+        )
+        (overlay / "index.html").write_text(
+            '<html><head></head><body style="overflow: hidden"></body></html>',
+            encoding="utf-8",
+        )
+        (extract / "package.json").write_text(
+            json.dumps(
+                {
+                    "name": "wispr-flow",
+                    "productName": "Wispr Flow",
+                    "description": "Wispr Flow",
+                    "author": {"name": "Wispr Flow"},
+                    "version": "1.6.122",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    def test_pipeline_marks_patched_asar(self) -> None:
+        """Full pipeline output must satisfy the complete verification set."""
+        from openflow.patch import inject, patch_asr, patch_offline_local, rebrand
+
+        with tempfile.TemporaryDirectory() as temp:
+            extract = Path(temp) / "extract"
+            self._build_stock_extract(extract)
+
+            patch_asr.patch(extract / ".webpack" / "main" / "index.js")
+            patch_offline_local.patch_extract(extract)
+            rebrand.rebrand(extract)
+            inject.run(extract)
+
+            blob = b"\n".join(
+                p.read_bytes() for p in sorted(extract.rglob("*")) if p.is_file()
+            )
+            missing = [
+                name
+                for name, marker in asar_api.REQUIRED_MARKERS.items()
+                if marker not in blob
+            ]
+            self.assertEqual(missing, [])
+            for url in asar_api.STOCK_URLS:
+                self.assertNotIn(url, blob)
+
+    def test_verification_requires_full_marker_set(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             asar = Path(temp) / "app.asar"
-            safe_payload = b"\n".join(asar_api.REQUIRED_MARKERS.values())
-            asar.write_bytes(safe_payload)
+            full_payload = b"\n".join(asar_api.REQUIRED_MARKERS.values())
+            asar.write_bytes(full_payload)
             ok, checks = asar_api.verify_asar(asar)
             self.assertTrue(ok, checks)
 
-            asar.write_bytes(safe_payload + b"\ngrok-flow-pro")
+            # Any missing marker fails verification
+            for name, marker in asar_api.REQUIRED_MARKERS.items():
+                others = b"\n".join(
+                    m for n, m in asar_api.REQUIRED_MARKERS.items() if n != name
+                )
+                asar.write_bytes(others)
+                ok, checks = asar_api.verify_asar(asar)
+                self.assertFalse(ok, name)
+                self.assertFalse(checks[name])
+
+            # Stock cloud endpoints still present -> fail
+            asar.write_bytes(full_payload + b"\n" + asar_api.STOCK_URLS[0])
             ok, checks = asar_api.verify_asar(asar)
             self.assertFalse(ok)
-            self.assertFalse(checks["no subscription bypass"])
+            self.assertFalse(checks["old Baseten gone"])
 
     def test_restore_uses_stock_backup(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

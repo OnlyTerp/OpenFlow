@@ -1,0 +1,6 @@
+html, body, body > div, #root, #app, [id^="root"] {
+  background: transparent !important;
+  background-color: transparent !important;
+  min-height: 0 !important;
+}
+#openflow-speech-engine { display: none !important; }

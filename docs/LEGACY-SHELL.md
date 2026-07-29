@@ -11,25 +11,44 @@ the third-party desktop binary.
 - The user installs and licenses Wispr Flow separately.
 - OpenFlow never downloads, commits, uploads, or releases an asar.
 - `python -m openflow patch` is an explicit local action.
-- The first patch preserves `app.asar.bak-pre-grok-stt`.
+- The first patch preserves `app.asar.bak-pre-grok-stt` (created only while the live asar
+  is still stock; every later run rebuilds from that backup).
 - `python -m openflow restore` copies that stock backup back into place.
-- Normal `openflow start` does not silently re-patch a third-party application.
-- Login, subscription, quota, update, and account controls remain stock.
+- The pipeline targets **Wispr Flow 1.6.122**: sign-in is replaced by a local offline
+  session, cloud-only chrome (quota CTA, post-onboarding interstitial, account tabs) is
+  hidden, the auto-updater is disabled (update pin), and the UI is rebranded to OpenFlow.
 
 See [OPEN_SOURCE.md](OPEN_SOURCE.md) for the publication policy.
 
 ## Patch behavior
 
-`openflow/patch/patch_asr.py` performs narrow, version-sensitive transformations:
+`openflow/patch/ensure.py` orchestrates the pipeline. It extracts the stock backup into a
+Windows-visible staging directory, runs the stages below, repacks with the stock build's
+unpack globs (`.node`/`.dll`/`.exe` stay unpacked), verifies the full marker set, and swaps
+the live asar:
 
-1. Redirect the Baseten-compatible `run_remote` URL to
-   `http://127.0.0.1:18765/environments/production/run_remote`.
-2. Enable the packaged gRPC override and default it to a non-racing local endpoint.
-3. Raise transcription and processing timeouts for local/provider latency.
-4. Extend the renderer CSP so it may contact the loopback shim.
+1. `patch_asr.py`:
+   - Redirect the Baseten-compatible `run_remote` URL to
+     `http://127.0.0.1:18765/environments/production/run_remote`.
+   - Enable the packaged gRPC override and default it to a non-racing local endpoint.
+   - Raise transcription (60s) and processing (120s) timeouts for local/provider latency.
+   - Extend the renderer CSP (`connect-src` and `frame-src`) so it may contact the
+     loopback shim.
+   - Disable `checkForUpdates` (`openflow-disable-updates`) so the pinned 1.6.122 build is
+     not silently replaced by an unpatched update.
+2. `patch_offline_local.py` — local offline sign-in (no login wall, dictation never
+   signed out; markers `grok-flow-offline-local`, `grok-flow-no-login`,
+   `grok-flow-force-signed-in`).
+3. `rebrand.py` — product strings, `package.json` fields, and the safe color list
+   (Wispr greens → OpenFlow orange), with `openflow-rebrand` marker.
+4. `inject.py` — theme/overlay assets from `openflow/patch/assets/` (Speech Engine
+   switcher, setup panel, transparent overlay) plus hub JS patches that hide the quota CTA,
+   skip the post-onboarding interstitial, and restrict Settings to General + System.
 
-Post-patch verification requires those markers and fails if a known subscription-bypass
-marker is present.
+Post-patch verification requires every pipeline marker (ASR routing, timeouts, CSP,
+offline-local, hub chrome, rebrand, speech engine UI) and fails if the stock Baseten URLs
+are still present. If byte patterns stop matching a future Wispr build, the pipeline fails
+loudly with the version to report.
 
 ## Install and launch
 

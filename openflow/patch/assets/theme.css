@@ -1,0 +1,178 @@
+
+/* OpenFlow v4 — speech engine only; leave app chrome alone */
+.grok-flow-hide,
+[data-grok-hide="1"] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  height: 0 !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  opacity: 0 !important;
+}
+
+/* Body-level host sits over the left column — blend into sidebar, no card chrome */
+#openflow-speech-engine {
+  position: fixed !important;
+  z-index: 2147483000 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  font-family: "Figtree", system-ui, -apple-system, sans-serif !important;
+  color: inherit !important;
+  pointer-events: auto !important;
+  box-sizing: border-box !important;
+}
+#openflow-speech-engine .of-label {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.03em !important;
+  text-transform: uppercase !important;
+  opacity: 0.55 !important;
+  margin: 0 0 6px 2px !important;
+  color: inherit !important;
+}
+#openflow-speech-engine .of-seg {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 3px !important;
+  padding: 3px !important;
+  border-radius: 10px !important;
+  background: rgba(40, 30, 20, 0.045) !important;
+  border: 1px solid rgba(40, 30, 20, 0.07) !important;
+  box-shadow: none !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+#openflow-speech-engine .of-seg button {
+  min-width: 0 !important;
+  width: 100% !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  border: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  color: inherit !important;
+  opacity: 0.72 !important;
+  border-radius: 7px !important;
+  padding: 7px 4px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  font-family: inherit !important;
+  cursor: pointer !important;
+  line-height: 1.15 !important;
+  box-shadow: none !important;
+  outline: none !important;
+  pointer-events: auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  box-sizing: border-box !important;
+}
+#openflow-speech-engine .of-seg button:hover {
+  background: rgba(127, 127, 127, 0.12) !important;
+  opacity: 1 !important;
+}
+#openflow-speech-engine .of-seg button.of-on {
+  background: rgba(255, 107, 44, 0.16) !important;
+  color: inherit !important;
+  opacity: 1 !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 107, 44, 0.28) !important;
+}
+#openflow-speech-engine .of-meta {
+  margin: 5px 2px 0 !important;
+  font-size: 11px !important;
+  line-height: 1.3 !important;
+  opacity: 0.62 !important;
+  color: inherit !important;
+}
+#openflow-speech-engine .of-meta.of-err {
+  opacity: 0.9 !important;
+  color: #b45309 !important;
+}
+#openflow-speech-engine .of-seg .of-dot {
+  width: 5px !important;
+  height: 5px !important;
+  border-radius: 50% !important;
+  background: rgba(127, 127, 127, 0.55) !important;
+  flex: none !important;
+}
+#openflow-speech-engine .of-seg .of-dot.of-ok { background: #22c55e !important; }
+#openflow-speech-engine .of-seg .of-dot.of-warn { background: #eab308 !important; }
+#openflow-speech-engine #of-setup-link {
+  appearance: none !important;
+  border: 0 !important;
+  background: transparent !important;
+  padding: 6px 2px 2px !important;
+  margin: 4px 0 0 !important;
+  width: 100% !important;
+  border-radius: 0 !important;
+  font: inherit !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  text-align: left !important;
+  color: inherit !important;
+  opacity: 0.55 !important;
+  text-decoration: underline !important;
+  text-underline-offset: 2px !important;
+}
+#openflow-speech-engine #of-setup-link:hover {
+  opacity: 0.9 !important;
+  color: #ff6b2c !important;
+}
+
+/* Plan pill shells next to brand — hide always (empty oval was planPill). */
+[class*="basicBadge"],
+[class*="BasicBadge"],
+[class*="planPill"],
+[class*="PlanPill"],
+[class*="planBadge"],
+[class*="PlanBadge"] {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Speech engine must never inherit hide rules */
+#openflow-speech-engine {
+  display: block !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  opacity: 1 !important;
+}
+#openflow-speech-engine .of-seg {
+  display: flex !important;
+  visibility: visible !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+#openflow-speech-engine .of-seg button {
+  visibility: visible !important;
+  pointer-events: auto !important;
+  height: auto !important;
+  max-height: none !important;
+}

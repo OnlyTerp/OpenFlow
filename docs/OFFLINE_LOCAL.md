@@ -36,5 +36,7 @@ OpenFlow sends multipart WAV audio to an OpenAI-compatible
 `/v1/audio/transcriptions` endpoint. The response must include a `text` field. Provider status
 probes the configured URL and reports connection failures honestly in `/health`.
 
-The desktop application is still governed by its own account and feature access. OpenFlow's
-public patch changes transcription routing and timeouts only.
+The desktop application's own vendor terms still apply. OpenFlow's local patch changes
+transcription routing and timeouts, replaces the vendor sign-in with a local offline
+session, and rebrands the shell; it does not grant access to any paid vendor service — all
+transcription goes to the locally configured providers.

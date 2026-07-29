@@ -76,6 +76,33 @@ python -m openflow start
 Startup shortcuts. `start` now finds your installed Wispr Flow desktop shell and patches it
 automatically before launching, so users no longer need to run `patch` manually.
 
+### Desktop patch pipeline
+
+`python -m openflow patch` (run implicitly by `start`) rebuilds the installed desktop
+`app.asar` from the immutable stock backup `app.asar.bak-pre-grok-stt` and applies four
+stages in order:
+
+1. **`patch_asr.py`** — routes transcription to the loopback shim, unlocks the packaged
+   gRPC override, raises transcription/processing timeouts, extends the renderer CSP to
+   loopback, and disables the auto-updater so an unpatched Wispr update cannot silently
+   replace the build.
+2. **`patch_offline_local.py`** — local sign-in bypass: the desktop shell runs on a local
+   offline session instead of the Wispr login wall, and dictation never drops into a
+   signed-out state.
+3. **`rebrand.py`** — `package.json` and user-facing strings become OpenFlow; theme greens
+   are swapped to the OpenFlow orange palette.
+4. **`inject.py`** — injects the OpenFlow theme (sidebar **Speech Engine** switcher,
+   first-run setup panel) into the renderer and hides cloud-only chrome (quota CTA,
+   post-onboarding interstitial, account/subscription settings tabs).
+
+The pipeline requires **Wispr Flow 1.6.122**. Every stage verifies exact byte patterns for
+that build; if a pattern does not match, patching fails loudly instead of writing a partial
+result — restore stock and report the app version plus the error text. Because the
+auto-updater is pinned off, update Wispr deliberately: `python -m openflow restore`, update,
+then `python -m openflow patch` again. The developer diagnostics page at
+`127.0.0.1:18765` stays off by default (`OPENFLOW_CONTROL_CENTER=1` enables it); the product
+UI is the patched Electron app, with no developer UI shown by default.
+
 The installed launcher is:
 
 ```text
@@ -112,8 +139,10 @@ real interface is the patched Wispr Flow Electron app.
 | `python -m openflow patch` | Manually back up and patch the current local desktop asar |
 | `python -m openflow restore` | Restore the stock asar backup |
 
-After a Wispr update, close Wispr and run `python -m openflow start` again. OpenFlow will
-re-patch the updated desktop shell automatically.
+After a deliberate Wispr update (see the auto-update pin above), close Wispr and run
+`python -m openflow start` again. OpenFlow will re-patch the updated desktop shell
+automatically; if the new Wispr version changes patched byte patterns, the pipeline fails
+loudly with the mismatch to report instead of installing a broken asar.
 
 ## Configuration
 

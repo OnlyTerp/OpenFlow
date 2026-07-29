@@ -50,6 +50,25 @@ Configuration lives at `%APPDATA%\\OpenFlow\\config.json` on Windows. See
 `python -m openflow start` now finds the Wispr Flow Electron installation already present on
 the user's Windows machine, patches it automatically, launches the shim, and opens the OpenFlow
 desktop experience. `python -m openflow patch` is still available for explicit/manual patching.
-`python -m openflow restore` restores the stock backup. OpenFlow does not distribute the
-third-party app or a patched asar; see
+`python -m openflow restore` restores the stock backup (`app.asar.bak-pre-grok-stt`). OpenFlow
+does not distribute the third-party app or a patched asar; see
 [OPEN_SOURCE.md](OPEN_SOURCE.md).
+
+The patch pipeline (`openflow/patch/ensure.py`) always rebuilds from the stock backup and
+applies, in order:
+
+1. **ASR routing** (`patch_asr.py`) — loopback transcription endpoint, local gRPC default,
+   raised timeouts, loopback CSP, auto-updater disabled (the build is pinned; Wispr cannot
+   auto-update past the patch).
+2. **Offline-local sign-in** (`patch_offline_local.py`) — the shell runs on a local offline
+   session; the login wall and signed-out dictation states are bypassed.
+3. **Rebrand** (`rebrand.py`) — product strings, `package.json`, and the OpenFlow orange
+   palette swap.
+4. **UI injection** (`inject.py`) — sidebar **Speech Engine** switcher and first-run setup
+   panel in the hub renderer, transparent overlay, hidden quota CTA/post-onboarding
+   interstitial, Settings restricted to General + System.
+
+The pipeline is verified against **Wispr Flow 1.6.122**. Version-sensitive byte patterns are
+checked at every stage; a mismatch fails loudly with the exact marker to report — no partial
+patch is installed. No developer UI is shown by default: the loopback diagnostics page is inert
+unless `OPENFLOW_CONTROL_CENTER=1` is set.

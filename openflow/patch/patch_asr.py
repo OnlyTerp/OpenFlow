@@ -148,27 +148,65 @@ CSP_CONNECT_PATCHED = (
 )
 CSP_MARKER = b"openflow-csp-shim"
 
+# CSP frame-src — feature nav panels use iframes to localhost
+CSP_FRAME_END = b't=["https://www.loom.com","wispr-extension:"].join(" ")'
+CSP_FRAME_PATCHED = (
+    b't=["https://www.loom.com","wispr-extension:",'
+    b'"http://127.0.0.1:18765","http://localhost:18765"].join(" ")/*openflow-csp-frames*/'
+)
+CSP_FRAME_MARKER = b"openflow-csp-frames"
+
 
 def patch_csp_localhost(text: bytes) -> bytes:
-    """Allow renderer fetch to local OpenFlow STT shim (:18765)."""
+    """Allow renderer fetch + iframe to local OpenFlow shim (:18765)."""
+    # connect-src
     if CSP_MARKER in text or b"http://127.0.0.1:18765" in text and b"connect-src" in text:
-        # marker or already has explicit host near CSP
         if CSP_MARKER in text or b'"http://127.0.0.1:18765"' in text:
             print("CSP connect-src: already allows OpenFlow shim")
-            return text
-    if CSP_CONNECT_END not in text:
-        print("WARN: CSP connect-src list end not found", file=sys.stderr)
-        return text
-    text = text.replace(CSP_CONNECT_END, CSP_CONNECT_PATCHED, 1)
-    print("CSP connect-src: allowed 127.0.0.1:18765 for Speech engine UI")
-    return text
+        elif CSP_CONNECT_END in text:
+            text = text.replace(CSP_CONNECT_END, CSP_CONNECT_PATCHED, 1)
+            print("CSP connect-src: allowed 127.0.0.1:18765 for Speech engine UI")
+    else:
+        if CSP_CONNECT_END not in text:
+            print("WARN: CSP connect-src list end not found", file=sys.stderr)
+        else:
+            text = text.replace(CSP_CONNECT_END, CSP_CONNECT_PATCHED, 1)
+            print("CSP connect-src: allowed 127.0.0.1:18765 for Speech engine UI")
 
+    # frame-src — allow iframes to the shim for feature panels
+    if CSP_FRAME_MARKER in text:
+        print("CSP frame-src: already allows OpenFlow shim")
+    elif CSP_FRAME_END in text:
+        text = text.replace(CSP_FRAME_END, CSP_FRAME_PATCHED, 1)
+        print("CSP frame-src: allowed 127.0.0.1:18765 for feature panels")
+    else:
+        print("WARN: CSP frame-src list not found", file=sys.stderr)
+
+    return text
+# Auto-updater disable — prevent Wispr from auto-updating to an unpatched
+# version (e.g. 1.6.224) that would strip all OpenFlow patches.
+UPDATER_MARKER = b"openflow-disable-updates"
+_UPDATER_OLD = b"async checkForUpdates(e=!1){if(this.updateState!==d.D9.AVAILABLE)"
+_UPDATER_NEW = b"async checkForUpdates(e=!1){return;/*openflow-disable-updates*/if(this.updateState!==d.D9.AVAILABLE)"
+
+
+def patch_disable_updates(text: bytes) -> bytes:
+    """Disable Wispr auto-updater to prevent auto-update to unpatched versions."""
+    if UPDATER_MARKER in text:
+        print("auto-updater: already disabled")
+    elif _UPDATER_OLD in text:
+        text = text.replace(_UPDATER_OLD, _UPDATER_NEW, 1)
+        print("auto-updater: disabled checkForUpdates")
+    else:
+        print("WARN: checkForUpdates pattern not found — updater may auto-update", file=sys.stderr)
+    return text
 
 def patch(index_js: Path) -> None:
     text = index_js.read_bytes()
     text = patch_asr(text)
     text = patch_processing_timeout(text)
     text = patch_csp_localhost(text)
+    text = patch_disable_updates(text)
     index_js.write_bytes(text)
     print("wrote", index_js)
 
@@ -185,15 +223,8 @@ def verify_bytes(data: bytes) -> dict[str, bool]:
         or b"te=12e4" in data,
         "csp allows shim": CSP_MARKER in data
         or b'"http://127.0.0.1:18765"' in data,
-        "no subscription bypass": not any(
-            marker in data
-            for marker in (
-                b"grok-flow-skip-weekly-limit",
-                b"grok-flow-pro",
-                b"grok-flow-nolimit",
-                b"grok-flow-local-offline-token",
-            )
-        ),
+        "csp allows frames": CSP_FRAME_MARKER in data,
+        "auto-updater disabled": UPDATER_MARKER in data,
     }
 
 
