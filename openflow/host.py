@@ -254,6 +254,22 @@ def main() -> int:
         )
         return 2
 
+    # If the desktop shell is already running, do not try to patch it while it
+    # holds files in memory. A hot-patched asar would not take effect until the
+    # next launch anyway, so we just keep the shim alive and exit.
+    if ui_running():
+        _log("UI already running - leaving it alone")
+        if not health_ok():
+            _log("shim not up - starting silent")
+            try:
+                start_shim_silent(pyw)
+            except Exception as e:
+                _log(f"FATAL start shim: {e}")
+                return 1
+            wait_health(10.0)
+        _log("host done (already running)")
+        return 0
+
     # Ensure the Electron shell is patched before we launch it.
     try:
         from openflow.patch.ensure import ensure_patched
