@@ -31,6 +31,14 @@ _INSTALL_FILES = (
     "launch-openflow.vbs",
 )
 
+# Assets (logos, icons, tray) must ship with the install root.
+_INSTALL_ASSETS = (
+    "openflow-logo-256.png",
+    "openflow-tray-32.png",
+    "openflow-tray-64.png",
+    "openflow.ico",
+)
+
 
 def _repo_root() -> Path:
     # openflow/cli.py -> openflow/ -> repo or install root
@@ -103,8 +111,8 @@ def _win_path(p: Path) -> str:
 
 
 def cmd_status(_: argparse.Namespace) -> int:
-    host = os.environ.get("WISPR_GROK_HOST", "127.0.0.1")
-    port = os.environ.get("WISPR_GROK_PORT", "18765")
+    host = os.environ.get("OPENFLOW_HOST", os.environ.get("WISPR_GROK_HOST", "127.0.0.1"))
+    port = os.environ.get("OPENFLOW_PORT", os.environ.get("WISPR_GROK_PORT", "18765"))
     url = f"http://{host}:{port}/health"
     try:
         with urllib.request.urlopen(url, timeout=2) as resp:
@@ -177,6 +185,15 @@ def cmd_install(args: argparse.Namespace) -> int:
         if s.is_file():
             shutil.copy2(s, dest / name)
 
+    # Copy bundled brand assets so shortcuts and the UI use the OpenFlow logo,
+    # never the stock Wispr Flow executable as an icon source.
+    assets_dst = dest / "assets"
+    assets_dst.mkdir(parents=True, exist_ok=True)
+    for name in _INSTALL_ASSETS:
+        s = src / "assets" / name
+        if s.is_file():
+            shutil.copy2(s, assets_dst / name)
+
     # Always write canonical silent VBS at install root
     vbs = dest / "launch-openflow.vbs"
     vbs.write_text(textwrap_vbs_module(), encoding="utf-8")
@@ -210,7 +227,7 @@ def cmd_install(args: argparse.Namespace) -> int:
 def textwrap_vbs_module() -> str:
     return (
         "Option Explicit\n"
-        "Dim sh, fso, dir, pyw, localApp, candidates, i\n"
+        "Dim sh, fso, dir, pyw, localApp, candidates, i, exitCode\n"
         'Set sh = CreateObject("WScript.Shell")\n'
         'Set fso = CreateObject("Scripting.FileSystemObject")\n'
         "dir = fso.GetParentFolderName(WScript.ScriptFullName)\n"
@@ -231,7 +248,21 @@ def textwrap_vbs_module() -> str:
         'If pyw = "" Then pyw = "pythonw.exe"\n'
         # Set PYTHONPATH=dir so -m openflow resolves
         'sh.Environment("Process")("PYTHONPATH") = dir\n'
-        'sh.Run """" & pyw & """ -m openflow start", 0, False\n'
+        # Wait on the launcher so missing-desktop / patch errors can be shown.
+        'exitCode = sh.Run("""" & pyw & """ -m openflow start", 0, True)\n'
+        'If exitCode = 2 Then\n'
+        '  MsgBox "OpenFlow could not find the Wispr Flow desktop app." & vbCrLf & _\n'
+        '         "Please install Wispr Flow from https://wisprflow.ai first, then run OpenFlow again.", _\n'
+        '         vbCritical, "OpenFlow - Desktop shell not found"\n'
+        'ElseIf exitCode = 4 Then\n'
+        '  MsgBox "OpenFlow could not patch the Wispr Flow desktop app." & vbCrLf & _\n'
+        '         "Close Wispr Flow and run: python -m openflow patch", _\n'
+        '         vbCritical, "OpenFlow - Patch failed"\n'
+        'ElseIf exitCode <> 0 Then\n'
+        '  MsgBox "OpenFlow launcher failed (code " & exitCode & ")." & vbCrLf & _\n'
+        '         "Check the logs folder in: " & dir, _\n'
+        '         vbCritical, "OpenFlow - Launch failed"\n'
+        'End If\n'
     )
 
 
@@ -241,18 +272,11 @@ def _install_shortcuts(install_dir: Path) -> None:
         # Best-effort from WSL via powershell
         pass
     vbs = install_dir / "launch-openflow.vbs"
-    icon = install_dir / "openflow" / "static"  # fallback later
-    # Prefer assets if present
-    for cand in (
-        install_dir / "assets" / "openflow.ico",
-        _repo_root() / "assets" / "openflow.ico",
-    ):
-        if cand.is_file():
-            icon = cand
-            break
-    else:
-        local = os.environ.get("LOCALAPPDATA", "")
-        icon = Path(local) / "WisprFlow" / "app-1.6.122" / "Wispr Flow.exe"
+    # Always use the bundled OpenFlow icon; never extract an icon from the
+    # Wispr Flow executable.
+    icon = install_dir / "assets" / "openflow.ico"
+    if not icon.is_file():
+        icon = _repo_root() / "assets" / "openflow.ico"
 
     launcher = _win_path(vbs)
     icon_s = _win_path(icon)
@@ -261,6 +285,7 @@ $ErrorActionPreference = 'Stop'
 $Launcher = '{launcher.replace("'", "''")}'
 $Icon = '{icon_s.replace("'", "''")}'
 if (-not (Test-Path -LiteralPath $Launcher)) {{ throw "Launcher missing: $Launcher" }}
+if (-not (Test-Path -LiteralPath $Icon)) {{ throw "OpenFlow icon missing: $Icon. Run install again." }}
 function Set-Shortcut($Path, $Target) {{
   $dir = Split-Path -Parent $Path
   if (-not (Test-Path $dir)) {{ New-Item -ItemType Directory -Path $dir -Force | Out-Null }}
@@ -269,12 +294,12 @@ function Set-Shortcut($Path, $Target) {{
   $s.TargetPath = $Target
   $s.WorkingDirectory = (Split-Path -Parent $Target)
   $s.WindowStyle = 7
-  if (Test-Path -LiteralPath $Icon) {{ $s.IconLocation = "$Icon,0" }}
-  $s.Description = 'OpenFlow - local dictation'
+  $s.IconLocation = "$Icon,0"
+  $s.Description = 'OpenFlow - local multi-engine dictation'
   $s.Save()
   Write-Output "OK $Path -> $Target"
 }}
-# Remove dual-tree / stock launchers
+# Remove any legacy dual-tree / stock launchers that may confuse users.
 $kill = @(
   "$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\Wispr Flow.lnk",
   "$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\Grok Flow Shim.lnk",

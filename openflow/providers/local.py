@@ -32,6 +32,9 @@ log = logging.getLogger("openflow.local")
 DEFAULT_URL = os.environ.get(
     "OPENFLOW_LOCAL_STT_URL", "http://127.0.0.1:8080/v1/audio/transcriptions"
 )
+# Also accept the older internal name for backward compatibility.
+if os.environ.get("WISPR_GROK_LOCAL_STT_URL"):
+    DEFAULT_URL = os.environ["WISPR_GROK_LOCAL_STT_URL"]
 DEFAULT_MODEL = os.environ.get("OPENFLOW_LOCAL_STT_MODEL", "whisper-1")
 STT_TIMEOUT = float(os.environ.get("OPENFLOW_LOCAL_STT_TIMEOUT", "60"))
 

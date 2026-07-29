@@ -38,8 +38,8 @@ belongs in this repository.
   receive cross-origin access.
 - Provider fallback is **opt-in**. Failed local transcription never sends audio to a cloud
   provider unless that provider is explicitly present in `fallback`.
-- Failed recordings are **not retained**. Set `WISPR_GROK_DEBUG_AUDIO` to a directory only
-  when you intentionally need local diagnostic recordings.
+- Failed recordings are **not retained**. Set `OPENFLOW_DEBUG_AUDIO` (or the legacy
+  `WISPR_GROK_DEBUG_AUDIO`) to a directory only when you intentionally need local diagnostic recordings.
 - `format_examples.json` is private, gitignored, and never copied by the installer.
 - Credentials stay in each provider's existing local credential store. OpenFlow never copies
   them into the repository or install payload.
@@ -69,13 +69,12 @@ git clone https://github.com/OnlyTerp/OpenFlow.git
 cd OpenFlow
 npm ci
 python -m openflow install
-python -m openflow patch
 python -m openflow start
 ```
 
 `install` deploys the public runtime to `%LOCALAPPDATA%\OpenFlow` and creates Desktop and
-Startup shortcuts. `patch` is intentionally separate: it is the explicit step that backs up
-and modifies the user's local desktop asar. It never downloads or publishes a vendor binary.
+Startup shortcuts. `start` now finds your installed Wispr Flow desktop shell and patches it
+automatically before launching, so users no longer need to run `patch` manually.
 
 The installed launcher is:
 
@@ -98,22 +97,23 @@ Provider authentication still uses each provider's existing local session:
 | Claude | Sign in to Claude Desktop |
 | Local | Configure an OpenAI-compatible `/v1/audio/transcriptions` URL |
 
-The loopback page at `127.0.0.1:18765` exists only for development diagnostics and recovery.
-It is not the OpenFlow product and must not be used in product screenshots or marketing.
+The loopback page at `127.0.0.1:18765` is **developer diagnostics only** and is not the
+OpenFlow product. If you open it in a browser you are looking at the wrong window. The
+real interface is the patched Wispr Flow Electron app.
 
 ## Commands
 
 | Command | Action |
 |---|---|
 | `python -m openflow install` | Deploy runtime and Windows shortcuts |
-| `python -m openflow start` | Start the shim silently and launch the desktop shell |
-| `python -m openflow serve` | Run only the shim in the foreground |
+| `python -m openflow start` | Patch the desktop shell, start the shim, and launch the desktop app |
+| `python -m openflow serve` | Run only the shim in the foreground (developer use) |
 | `python -m openflow status` | Print `GET /health` and exit nonzero when offline |
-| `python -m openflow patch` | Back up and patch the current local desktop asar |
+| `python -m openflow patch` | Manually back up and patch the current local desktop asar |
 | `python -m openflow restore` | Restore the stock asar backup |
 
-After a Wispr update, close Wispr and run `python -m openflow patch` again. OpenFlow does not
-silently modify third-party application files during normal startup.
+After a Wispr update, close Wispr and run `python -m openflow start` again. OpenFlow will
+re-patch the updated desktop shell automatically.
 
 ## Configuration
 
@@ -131,11 +131,14 @@ Useful development overrides:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `WISPR_GROK_HOST` | `127.0.0.1` | Shim bind address |
-| `WISPR_GROK_PORT` | `18765` | Shim port |
-| `WISPR_GROK_DEBUG_AUDIO` | unset | Opt-in failed-audio directory |
-| `WISPR_GROK_EXAMPLES` | install-root `format_examples.json` | Private cleanup examples |
+| `OPENFLOW_HOST` | `127.0.0.1` | Shim bind address |
+| `OPENFLOW_PORT` | `18765` | Shim port |
+| `OPENFLOW_DEBUG_AUDIO` | unset | Opt-in failed-audio directory |
+| `OPENFLOW_EXAMPLES` | install-root `format_examples.json` | Private cleanup examples |
 | `OPENFLOW_CONFIG` | platform config path | Isolated config for development/tests |
+| `OPENFLOW_CONTROL_CENTER` | `0` | Set to `1` to enable the diagnostics web UI |
+
+Older `WISPR_GROK_*` environment variables are still accepted for backward compatibility.
 
 ## Development
 
@@ -149,7 +152,8 @@ python -m openflow --help
 python -m openflow serve
 ```
 
-For diagnostics only, open <http://127.0.0.1:18765/> and exercise the loopback test bench.
+If you need the diagnostics test bench, set the environment variable `OPENFLOW_CONTROL_CENTER=1`
+before starting the shim, then open <http://127.0.0.1:18765/>.
 
 Architecture and design references:
 

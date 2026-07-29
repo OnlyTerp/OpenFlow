@@ -4,8 +4,8 @@ Package layout:
   openflow/
     server/     HTTP STT shim (Grok / ChatGPT / Claude / Local)
     providers/  STT plugins
-    patch/      Wispr desktop shell patch tools (user's own install only)
-    static/     Shim debug / setup UI
+    patch/      Desktop Electron shell patch tools (user's own install only)
+    static/     Developer diagnostics / setup UI (not the product surface)
     host.py     Silent Windows launcher
     config.py   User config (~/.openflow or %APPDATA%\\OpenFlow)
     auth.py     Connect-engine OAuth helpers

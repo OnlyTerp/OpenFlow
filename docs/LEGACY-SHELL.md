@@ -38,7 +38,6 @@ Close Wispr Flow before patching:
 ```bat
 npm ci
 python -m openflow install
-python -m openflow patch
 python -m openflow start
 ```
 
@@ -46,8 +45,9 @@ The install root is `%LOCALAPPDATA%\\OpenFlow`. Desktop and Startup shortcuts po
 `launch-openflow.vbs` there. The launcher starts the shim without a console window and opens
 the OpenFlow Electron app.
 
-Choose Grok, GPT, Claude, or Local from the app's **Speech Engine** control. The loopback page
-at <http://127.0.0.1:18765/> is developer diagnostics only and is not a product interface.
+Choose Grok, GPT, Claude, or Local from the app's **Speech Engine** control in the bottom-left
+corner of the patched Wispr Flow window. The loopback page at <http://127.0.0.1:18765/> is
+developer diagnostics only and is not a product interface.
 
 ## After a desktop-app update
 
@@ -74,7 +74,7 @@ Restore fails rather than guessing when the stock backup is missing.
 | Symptom | Check |
 |---|---|
 | Shim offline | `python -m openflow status` |
-| Desktop still uses stock transcription | Close the app, run `python -m openflow patch`, relaunch |
+| Desktop still uses stock transcription | Close the app, run `python -m openflow start` again (it re-patches automatically), or run `python -m openflow patch` |
 | Provider unavailable | Open `/health` and inspect the selected provider's honest status |
 | Local Whisper unavailable | Start the configured server and verify its URL in the dashboard |
 | Long dictation truncates | Run the offline tests; the final `llm_text` must include `prev_asr_text` |

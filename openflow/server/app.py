@@ -33,41 +33,35 @@ _ROOT = Path(__file__).resolve().parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-HOST = os.environ.get("WISPR_GROK_HOST", "127.0.0.1")
-PORT = int(os.environ.get("WISPR_GROK_PORT", "18765"))
-STT_URL = os.environ.get("WISPR_GROK_STT_URL", "https://api.x.ai/v1/stt")
-CHAT_URL = os.environ.get("WISPR_GROK_CHAT_URL", "https://api.x.ai/v1/chat/completions")
-CHAT_MODEL = os.environ.get("WISPR_GROK_CHAT_MODEL", "grok-4.20-0309-non-reasoning")
-USER_AGENT = os.environ.get("WISPR_GROK_UA", "grok-cli/0.2.101")
+HOST = os.environ.get("OPENFLOW_HOST", os.environ.get("WISPR_GROK_HOST", "127.0.0.1"))
+PORT = int(os.environ.get("OPENFLOW_PORT", os.environ.get("WISPR_GROK_PORT", "18765")))
+STT_URL = os.environ.get("OPENFLOW_STT_URL", os.environ.get("WISPR_GROK_STT_URL", "https://api.x.ai/v1/stt"))
+CHAT_URL = os.environ.get("OPENFLOW_CHAT_URL", os.environ.get("WISPR_GROK_CHAT_URL", "https://api.x.ai/v1/chat/completions"))
+CHAT_MODEL = os.environ.get("OPENFLOW_CHAT_MODEL", os.environ.get("WISPR_GROK_CHAT_MODEL", "grok-4.20-0309-non-reasoning"))
+USER_AGENT = os.environ.get("OPENFLOW_UA", os.environ.get("WISPR_GROK_UA", "grok-cli/0.2.101"))
 # Per-request read timeout floor. GrokProvider scales up for long audio so
 # multi-sentence dictations don't get truncated by a 12s hard kill.
 # CLIENT_BUDGET must stay above (timeout × attempts) or the client abandons.
-STT_TIMEOUT = float(os.environ.get("WISPR_GROK_STT_TIMEOUT", "22"))
-STT_CONNECT_TIMEOUT = float(os.environ.get("WISPR_GROK_STT_CONNECT", "3"))
-FORMAT_TIMEOUT = float(os.environ.get("WISPR_GROK_FORMAT_TIMEOUT", "8"))
-MAX_BODY_BYTES = int(os.environ.get("WISPR_GROK_MAX_BODY", str(25_000_000)))
-CLIENT_BUDGET_S = float(os.environ.get("WISPR_GROK_CLIENT_BUDGET", "45"))
-STT_RETRIES = int(os.environ.get("WISPR_GROK_STT_RETRIES", "2"))
+STT_TIMEOUT = float(os.environ.get("OPENFLOW_STT_TIMEOUT", os.environ.get("WISPR_GROK_STT_TIMEOUT", "22")))
+STT_CONNECT_TIMEOUT = float(os.environ.get("OPENFLOW_STT_CONNECT", os.environ.get("WISPR_GROK_STT_CONNECT", "3")))
+FORMAT_TIMEOUT = float(os.environ.get("OPENFLOW_FORMAT_TIMEOUT", os.environ.get("WISPR_GROK_FORMAT_TIMEOUT", "8")))
+MAX_BODY_BYTES = int(os.environ.get("OPENFLOW_MAX_BODY", os.environ.get("WISPR_GROK_MAX_BODY", str(25_000_000))))
+CLIENT_BUDGET_S = float(os.environ.get("OPENFLOW_CLIENT_BUDGET", os.environ.get("WISPR_GROK_CLIENT_BUDGET", "45")))
+STT_RETRIES = int(os.environ.get("OPENFLOW_STT_RETRIES", os.environ.get("WISPR_GROK_STT_RETRIES", "2")))
 # STT format=true = free inverse-text-normalization on the same STT call (no extra RTT).
-STT_FORMAT = os.environ.get("WISPR_GROK_STT_FORMAT", "true").lower() in {
-    "1",
-    "true",
-    "yes",
-}
+STT_FORMAT = os.environ.get(
+    "OPENFLOW_STT_FORMAT", os.environ.get("WISPR_GROK_STT_FORMAT", "true")
+).lower() in {"1", "true", "yes"}
 # Default OFF: chat format doubles latency and caused multi-chunk pastes to hang.
 # Local light cleanup always runs (lexicon + stutter/filler) even when this is off.
-LLM_FORMAT = os.environ.get("WISPR_GROK_LLM_FORMAT", "false").lower() in {
-    "1",
-    "true",
-    "yes",
-}
+LLM_FORMAT = os.environ.get(
+    "OPENFLOW_LLM_FORMAT", os.environ.get("WISPR_GROK_LLM_FORMAT", "false")
+).lower() in {"1", "true", "yes"}
 # Deterministic cleanup after STT (no network). Disable with WISPR_GROK_LOCAL_CLEANUP=false.
-LOCAL_CLEANUP = os.environ.get("WISPR_GROK_LOCAL_CLEANUP", "true").lower() in {
-    "1",
-    "true",
-    "yes",
-}
-_debug_audio_path = os.environ.get("WISPR_GROK_DEBUG_AUDIO", "").strip()
+LOCAL_CLEANUP = os.environ.get(
+    "OPENFLOW_LOCAL_CLEANUP", os.environ.get("WISPR_GROK_LOCAL_CLEANUP", "true")
+).lower() in {"1", "true", "yes"}
+_debug_audio_path = os.environ.get("OPENFLOW_DEBUG_AUDIO", os.environ.get("WISPR_GROK_DEBUG_AUDIO", "")).strip()
 # Failed recordings can contain sensitive speech. Retention is opt-in only.
 DEBUG_AUDIO_DIR: Path | None = (
     Path(_debug_audio_path).expanduser() if _debug_audio_path else None
@@ -77,8 +71,11 @@ DEBUG_AUDIO_DIR: Path | None = (
 # and never copied by the installer.
 EXAMPLES_PATH = Path(
     os.environ.get(
-        "WISPR_GROK_EXAMPLES",
-        str(Path(__file__).resolve().parents[1].parent / "format_examples.json"),
+        "OPENFLOW_EXAMPLES",
+        os.environ.get(
+            "WISPR_GROK_EXAMPLES",
+            str(Path(__file__).resolve().parents[1].parent / "format_examples.json"),
+        ),
     )
 )
 
@@ -1605,36 +1602,41 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, m)
             return
 
-        # Control Center UI
+        # The Control Center is a developer/test tool, not the product surface.
+        # Never serve it at the root where a confused user might think it is the app.
         if path in ("/", "/ui", "/ui/", "/openflow", "/openflow/"):
-            if self._serve_static("index.html"):
-                return
+            if os.environ.get("OPENFLOW_CONTROL_CENTER") in {"1", "true", "yes"}:
+                if self._serve_static("index.html"):
+                    return
             self._send(
                 200,
                 {
                     "ok": True,
                     "brand": "OpenFlow",
-                    "message": "UI not bundled; use /health and /v1/providers",
+                    "message": "OpenFlow STT shim is running. Use the desktop app; the loopback UI is developer diagnostics only.",
+                    "desktop_required": True,
                 },
             )
             return
-        if path.startswith("/ui/") or path.startswith("/static/"):
-            rel = path.split("/", 2)[-1] if path.startswith("/ui/") else path[len("/static/") :]
-            if path.startswith("/ui/"):
-                rel = path[len("/ui/") :]
-            if self._serve_static(rel):
-                return
-        # allow common UI assets at root (incl. local Insights + setup wizard)
-        if path.lstrip("/") in (
-            "app.css",
-            "app.js",
-            "index.html",
-            "stats.html",
-            "overlay.html",
-            "setup.html",
-        ):
-            if self._serve_static(path.lstrip("/")):
-                return
+        # /ui/* and /static/* are developer diagnostics; hide them unless the
+        # OPENFLOW_CONTROL_CENTER env var is explicitly enabled.
+        if os.environ.get("OPENFLOW_CONTROL_CENTER") in {"1", "true", "yes"}:
+            if path.startswith("/ui/") or path.startswith("/static/"):
+                rel = path.split("/", 2)[-1] if path.startswith("/ui/") else path[len("/static/") :]
+                if path.startswith("/ui/"):
+                    rel = path[len("/ui/") :]
+                if self._serve_static(rel):
+                    return
+            if path.lstrip("/") in (
+                "app.css",
+                "app.js",
+                "index.html",
+                "stats.html",
+                "overlay.html",
+                "setup.html",
+            ):
+                if self._serve_static(path.lstrip("/")):
+                    return
 
         self._send(404, {"error": "not found"})
 
@@ -1677,9 +1679,7 @@ def main():
         pass
     httpd = ReuseThreadingHTTPServer((HOST, PORT), Handler)
     log.info(
-        "OpenFlow shim on http://%s:%d ui=http://%s:%d/ (STT format=%s local_cleanup=%s llm_format=%s model=%s lexicon=%d)",
-        HOST,
-        PORT,
+        "OpenFlow shim on http://%s:%d (STT format=%s local_cleanup=%s llm_format=%s model=%s lexicon=%d)",
         HOST,
         PORT,
         STT_FORMAT,

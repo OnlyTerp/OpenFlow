@@ -13,19 +13,31 @@ from .http_util import HttpError, post
 
 log = logging.getLogger("openflow.grok")
 
-STT_URL = os.environ.get("WISPR_GROK_STT_URL", "https://api.x.ai/v1/stt")
-USER_AGENT = os.environ.get("WISPR_GROK_UA", "grok-cli/0.2.101")
-STT_TIMEOUT = float(os.environ.get("WISPR_GROK_STT_TIMEOUT", "22"))
-STT_CONNECT = float(os.environ.get("WISPR_GROK_STT_CONNECT", "2.0"))
-STT_FORMAT = os.environ.get("WISPR_GROK_STT_FORMAT", "true").lower() in {
-    "1",
-    "true",
-    "yes",
-}
-STT_RETRIES = int(os.environ.get("WISPR_GROK_STT_RETRIES", "2"))
+STT_URL = os.environ.get(
+    "OPENFLOW_STT_URL", os.environ.get("WISPR_GROK_STT_URL", "https://api.x.ai/v1/stt")
+)
+USER_AGENT = os.environ.get(
+    "OPENFLOW_UA", os.environ.get("WISPR_GROK_UA", "grok-cli/0.2.101")
+)
+STT_TIMEOUT = float(
+    os.environ.get("OPENFLOW_STT_TIMEOUT", os.environ.get("WISPR_GROK_STT_TIMEOUT", "22"))
+)
+STT_CONNECT = float(
+    os.environ.get("OPENFLOW_STT_CONNECT", os.environ.get("WISPR_GROK_STT_CONNECT", "2.0"))
+)
+STT_FORMAT = os.environ.get(
+    "OPENFLOW_STT_FORMAT", os.environ.get("WISPR_GROK_STT_FORMAT", "true")
+).lower() in {"1", "true", "yes"}
+STT_RETRIES = int(
+    os.environ.get("OPENFLOW_STT_RETRIES", os.environ.get("WISPR_GROK_STT_RETRIES", "2"))
+)
 # 16-bit mono 16 kHz ≈ 32 KB/s. Used to scale read timeout for long takes.
 _WAV_BYTES_PER_SEC = 32000.0
-_STT_TIMEOUT_CAP = float(os.environ.get("WISPR_GROK_STT_TIMEOUT_CAP", "60"))
+_STT_TIMEOUT_CAP = float(
+    os.environ.get(
+        "OPENFLOW_STT_TIMEOUT_CAP", os.environ.get("WISPR_GROK_STT_TIMEOUT_CAP", "60")
+    )
+)
 
 
 def _timeout_for_wav(wav_bytes: bytes) -> float:

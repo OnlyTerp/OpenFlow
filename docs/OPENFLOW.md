@@ -28,7 +28,8 @@ For development or recovery, start the shim directly:
 python -m openflow serve
 ```
 
-Then open <http://127.0.0.1:18765/>. Assets under `openflow/static/openflow/` expose provider
+For the developer diagnostics UI, set `OPENFLOW_CONTROL_CENTER=1`, then open
+<http://127.0.0.1:18765/>. Assets under `openflow/static/openflow/` expose provider
 status, counters, configuration, and a microphone test bench. This diagnostic page is not a
 hosted application, not a product interface, and must not appear in product marketing.
 
@@ -46,8 +47,9 @@ Configuration lives at `%APPDATA%\\OpenFlow\\config.json` on Windows. See
 
 ## Electron desktop integration
 
-`python -m openflow patch` integrates with a Wispr Flow Electron installation already present
-on the user's Windows machine. `python -m openflow start` launches the shim and that OpenFlow
-desktop experience together. `python -m openflow restore` restores the stock backup. OpenFlow
-does not distribute the third-party app or a patched asar; see
+`python -m openflow start` now finds the Wispr Flow Electron installation already present on
+the user's Windows machine, patches it automatically, launches the shim, and opens the OpenFlow
+desktop experience. `python -m openflow patch` is still available for explicit/manual patching.
+`python -m openflow restore` restores the stock backup. OpenFlow does not distribute the
+third-party app or a patched asar; see
 [OPEN_SOURCE.md](OPEN_SOURCE.md).

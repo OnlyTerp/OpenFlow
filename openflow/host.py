@@ -2,15 +2,14 @@
 """OpenFlow silent host - one process, zero CMD windows.
 
 What it does:
-  1. If the STT shim (:18765) is already healthy → leave it alone
-  2. Otherwise start the packaged server with pythonw (no console)
-  3. Wait briefly for /health
-  4. Launch the desktop UI if it is not already running
-  5. Exit (shim keeps running as a detached process)
+  1. Locate and auto-patch the user-installed Electron shell
+  2. If the STT shim (:18765) is already healthy → leave it alone
+  3. Otherwise start the packaged server with pythonw (no console)
+  4. Wait briefly for /health
+  5. Launch the desktop Electron app if it is not already running
+  6. Exit (shim keeps running as a detached process)
 
-Entry point: launch-openflow.vbs (desktop / Startup, fully silent).
-
-Never uses `start "title" /MIN cmd /c ...` (those flash taskbar CMD windows).
+This never opens a browser or the diagnostics web UI as the product surface.
 """
 
 from __future__ import annotations
@@ -26,8 +25,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent  # install root (parent of openflow/)
 LOG_DIR = ROOT / "logs"
-HOST = os.environ.get("WISPR_GROK_HOST", "127.0.0.1")
-PORT = int(os.environ.get("WISPR_GROK_PORT", "18765"))
+HOST = os.environ.get("OPENFLOW_HOST", os.environ.get("WISPR_GROK_HOST", "127.0.0.1"))
+PORT = int(os.environ.get("OPENFLOW_PORT", os.environ.get("WISPR_GROK_PORT", "18765")))
 HEALTH_URL = f"http://{HOST}:{PORT}/health"
 
 # Windows process creation flags
@@ -83,6 +82,19 @@ def _apply_env() -> None:
         "FLOW_GRPC_URL_OVERRIDE": "127.0.0.1:1",
         "FLOW_GRPC_MODEL_ID_OVERRIDE": "local",
         "FLOW_GRPC_ENVIRONMENT_OVERRIDE": "production",
+        # OpenFlow uses these internally; WISPR_GROK_* aliases remain for
+        # backward compatibility with older configs/scripts.
+        "OPENFLOW_HOST": HOST,
+        "OPENFLOW_PORT": str(PORT),
+        "OPENFLOW_LLM_FORMAT": "false",
+        "OPENFLOW_STT_FORMAT": "true",
+        "OPENFLOW_LOCAL_CLEANUP": "true",
+        "OPENFLOW_CHAT_MODEL": "grok-4.20-0309-non-reasoning",
+        "OPENFLOW_STT_TIMEOUT": "22",
+        "OPENFLOW_STT_CONNECT": "3",
+        "OPENFLOW_FORMAT_TIMEOUT": "8",
+        "OPENFLOW_CLIENT_BUDGET": "45",
+        "OPENFLOW_STT_RETRIES": "2",
         "WISPR_GROK_HOST": HOST,
         "WISPR_GROK_PORT": str(PORT),
         "WISPR_GROK_LLM_FORMAT": "false",
@@ -159,13 +171,10 @@ def wait_health(seconds: float = 8.0) -> bool:
     return False
 
 
-def find_wispr_exe() -> Path | None:
+def find_desktop_exe() -> Path | None:
+    """Locate the user's installed Wispr Flow Electron shell (not bundled here)."""
     local = Path(os.environ.get("LOCALAPPDATA", ""))
-    candidates = [
-        local / "WisprFlow" / "app-1.6.122" / "Wispr Flow.exe",
-        local / "WisprFlow" / "Wispr Flow.exe",
-    ]
-    # Prefer newest app-* if version folder changes
+    candidates: list[Path] = []
     root = local / "WisprFlow"
     if root.is_dir():
         apps = sorted(
@@ -173,7 +182,8 @@ def find_wispr_exe() -> Path | None:
             key=lambda p: p.name,
         )
         for app in reversed(apps):
-            candidates.insert(0, app / "Wispr Flow.exe")
+            candidates.append(app / "Wispr Flow.exe")
+        candidates.append(root / "Wispr Flow.exe")
     for c in candidates:
         try:
             if c.is_file():
@@ -187,7 +197,6 @@ def ui_running() -> bool:
     if sys.platform != "win32":
         return False
     try:
-        # tasklist is light; avoid WMI (can hang on this machine)
         r = subprocess.run(
             ["tasklist", "/FI", "IMAGENAME eq Wispr Flow.exe", "/NH"],
             capture_output=True,
@@ -231,6 +240,43 @@ def main() -> int:
     py, pyw = _find_python()
     _log(f"py={py} pyw={pyw}")
 
+    # The product UI is the user-installed Electron shell. If it is not
+    # present, fail hard before starting the shim so the user gets a clear
+    # message instead of a silent shim + a confused browser window.
+    exe = find_desktop_exe()
+    if not exe:
+        _log("ERROR: Wispr Flow desktop shell not found under %LOCALAPPDATA%\\WisprFlow")
+        _log("Install Wispr Flow from https://wisprflow.ai, then run OpenFlow again.")
+        print(
+            "OpenFlow: Wispr Flow desktop shell not found.\n"
+            "Install it from https://wisprflow.ai, then re-run OpenFlow.",
+            file=sys.stderr,
+        )
+        return 2
+
+    # Ensure the Electron shell is patched before we launch it.
+    try:
+        from openflow.patch.ensure import ensure_patched
+
+        ensure_patched()
+        _log("desktop shell patched")
+    except SystemExit as e:
+        _log(f"ERROR patch failed: {e}")
+        print(
+            f"OpenFlow: could not patch the Wispr Flow desktop shell: {e}\n"
+            "Close Wispr Flow and run 'python -m openflow patch' manually.",
+            file=sys.stderr,
+        )
+        return 4
+    except Exception as e:
+        _log(f"ERROR patch failed: {e}")
+        print(
+            f"OpenFlow: could not patch the Wispr Flow desktop shell: {e}\n"
+            "Close Wispr Flow and run 'python -m openflow patch' manually.",
+            file=sys.stderr,
+        )
+        return 4
+
     already = health_ok()
     if already:
         _log("shim already healthy - reusing (no restart, no kill)")
@@ -246,11 +292,6 @@ def main() -> int:
         else:
             _log("shim healthy")
 
-
-    exe = find_wispr_exe()
-    if not exe:
-        _log("ERROR: Wispr Flow.exe not found under %LOCALAPPDATA%\\WisprFlow")
-        return 2
     try:
         launch_ui(exe)
     except Exception as e:

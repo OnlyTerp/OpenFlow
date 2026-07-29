@@ -60,7 +60,8 @@ rejected; the service must not be exposed beyond loopback.
 - `GET /metrics` — counters (`requests`, `stt_ok`, `stt_fail`), averages, `lexicon_rules`,
   `few_shots`, `provider_stats.by_provider.{ok,fail}`.
 - `POST <path ending in>run_remote` — transcription (contract below).
-- `GET /`, `/ui/*`, `/static/*`, `/app.css`, `/app.js` — control center static files with a
+- `GET /`, `/ui/*`, `/static/*`, `/app.css`, `/app.js` — **developer-only** control center
+  static files, disabled unless `OPENFLOW_CONTROL_CENTER=1` is set. These are not the product.
   path-traversal guard.
 
 ### `run_remote` contract
