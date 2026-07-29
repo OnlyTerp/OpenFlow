@@ -49,6 +49,27 @@ _PATCHES_MAIN = [
         b"flowState:(0,i.Y)(),authSignedIn:!0/*" + MARKER + b"*/,enterpriseIpBlocked",
         "default authSignedIn true (2)",
     ),
+    # app-1.6.288 variants
+    (
+        b'Qr=async()=>{const e=await Fr();return e?e.accessToken:(f.RA.authSignedIn&&i().error("No session found when getting access token, after user signed in"),null)}',
+        b'Qr=async()=>{try{const e=await Fr();if(e&&e.accessToken)return e.accessToken}catch(e){}return"grok-flow-local-offline-token"/*' + MARKER + b'*/}',
+        "getAccessToken local (app-1.6.288)",
+    ),
+    (
+        b'$r=async()=>{const e=await Fr();return e?e.identity:(f.RA.authSignedIn&&i().error("No session found when getting user, after user signed in"),null)}',
+        b'$r=async()=>{try{const e=await Fr();if(e&&e.identity)return e.identity}catch(e){}return{id:"grok-flow-local",email:"local@openflow.local",firstName:"OpenFlow",lastName:"Local",avatarUrl:null,subscription:{status:"active",daysLeft:null,plan:"FLOW_PRO_YEARLY",credits:999999,isSubscribed:!0,renewalTimestamp:4102444800,teamDomainStatus:"forbidden",isStudent:!1,sourceOfSubscription:"local",gracePeriodEndsAt:null,cancelAt:null,cancelAtPeriodEnd:!1,priceResolved:!0}}/*' + MARKER + b'*/}',
+        "getUser local (app-1.6.288)",
+    ),
+    (
+        b"O=e=>{v.authSignedIn=e,(0,d.vY)({authSignedIn:e}),(0,l.MP)(e)}",
+        b"O=e=>{e=!0/*" + FORCE + b"*/;v.authSignedIn=e,(0,d.vY)({authSignedIn:e}),(0,l.MP)(e)}",
+        "authSignedIn setter always true (app-1.6.288)",
+    ),
+    (
+        b'if(!J.RA.authSignedIn)return pe(_.Eg.SignedOut),void(0,g.BD)("not_signed_in");',
+        b'if(false/*' + FORCE + b'*/)return pe(_.Eg.SignedOut),void(0,g.BD)("not_signed_in");',
+        "dictation never SignedOut (app-1.6.288)",
+    ),
 ]
 
 _PATCHES_HUB = [
@@ -86,6 +107,27 @@ _PATCHES_HUB = [
         b'm(!1),kn.m.info("User is not signed in")',
         b'm(!0)/*' + MARKER + b'*/,kn.m.info("Grok Flow offline local auth")',
         "force supabaseSignedIn true",
+    ),
+    # app-1.6.288 variants
+    (
+        b"if(e.user.onboardingCompleted&&!kn)return(0,Y.jsx)(Rbe,{initialPage:n})",
+        b"if(true/*grok-flow-skip-onboarding*/)return(0,Y.jsx)(Rbe,{initialPage:n})",
+        "skip onboarding to main (app-1.6.288)",
+    ),
+    (
+        b"if(Wn||!1===g)return(0,Y.jsx)($l,{})",
+        b"if(false/*" + NOLOGIN + b"*/)return(0,Y.jsx)($l,{})",
+        "never login shell (app-1.6.288)",
+    ),
+    (
+        b"case k.PW.WelcomeBasic:return(0,Y.jsx)(XI,{})",
+        b"case k.PW.WelcomeBasic:return(0,Y.jsx)(Rbe,{initialPage:void 0})/*" + NOLOGIN + b"*/",
+        "WelcomeBasic to main (app-1.6.288)",
+    ),
+    (
+        b'f(!1),Ue.m.info("User is not signed in")',
+        b'f(!0)/*' + MARKER + b'*/,Ue.m.info("OpenFlow offline local auth")',
+        "force supabaseSignedIn true (app-1.6.288)",
     ),
 ]
 
@@ -183,7 +225,7 @@ def patch_extract(extract: Path) -> None:
             if a in h:
                 c = h.count(a)
                 h = h.replace(a, b)
-                print(f"  OK: hub {a.decode()}→{b.decode()} x{c}")
+                print(f"  OK: hub {a.decode()}->{b.decode()} x{c}")
         hub.write_bytes(h)
         print("wrote", hub)
     if status.is_file():

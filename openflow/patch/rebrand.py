@@ -118,6 +118,21 @@ def _rebrand_js(path: Path) -> dict[str, int]:
         if count:
             protected = protected.replace(old_b, new_b)
             stats["product"] += count
+    # Extra user-facing window / phrase strings that are not the full product name.
+    for old, new in (
+        (b'title:"Flow Hub"', b'title:"OpenFlow"'),
+        (b'title:"Flow Status Indicator"', b'title:"OpenFlow"'),
+        (b'document.title="Hub"', b'document.title="OpenFlow"'),
+        (b'document.title="Status"', b'document.title="OpenFlow"'),
+        (b'Hello from Flow', b'Hello from OpenFlow'),
+        (b'Welcome to Flow', b'Welcome to OpenFlow'),
+        (b'You just did your first Flow', b'You just did your first OpenFlow'),
+        (b'Move Flow', b'Move OpenFlow'),
+    ):
+        count = protected.count(old)
+        if count:
+            protected = protected.replace(old, new)
+            stats["product"] += count
     protected = _unprotect(protected, restore)
 
     protected, c = _replace_colors(protected)
@@ -195,7 +210,7 @@ def rebrand(extract_root: Path, rename_package: bool = False) -> int:
     except json.JSONDecodeError:
         pass
 
-    print(f"rebrand root: {extract_root} → {PRODUCT}")
+    print(f"rebrand root: {extract_root} -> {PRODUCT}")
     pkg_changes = _rebrand_package_json(pkg, rename_package=rename_package)
     if pkg_changes:
         print(f"package.json: {pkg_changes}")
@@ -220,8 +235,8 @@ def rebrand(extract_root: Path, rename_package: bool = False) -> int:
             total_colors += st["colors"]
             rel = path.relative_to(extract_root)
             print(
-                f"  {rel}: product×{st['product']} colors×{st['colors']} "
-                f"Δbytes={st['bytes_delta']}"
+                f"  {rel}: product x{st['product']} colors x{st['colors']} "
+                f"bytes_delta={st['bytes_delta']}"
             )
 
     print(

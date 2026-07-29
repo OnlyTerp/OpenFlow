@@ -109,23 +109,22 @@ def patch_asr(text: bytes) -> bytes:
 
 
 
-# Stock processing timeout te=24e3 (24s) - too short for Grok STT+format.
+# Stock processing timeout is 24e3 (24s) - too short for Grok STT+format.
+# Variable names change between builds, so we target the constant pair near the
+# "Pre-Login Feedback" label and bump the 24e3 value to 12e4 (120s).
 PROC_TIMEOUT_RE = re.compile(
-    rb',V=3e4,G=3e4,Y=12e4,K=6e4,Z=3145728,X=20971520,J="Pre-Login Feedback",ee=200,te=24e3'
+    rb'"Pre-Login Feedback",[A-Za-z_$][\w$]{0,3}=200,[A-Za-z_$][\w$]{0,3}=24e3\}'
 )
-PROC_TIMEOUT_BYPASS = (
-    b',V=3e4,G=3e4,Y=12e4,K=6e4,Z=3145728,X=20971520,J="Pre-Login Feedback",ee=200,te=12e4'
-)
-PROC_TIMEOUT_MARKER = b"te=12e4"  # paired with unique pre-login context when patching
+PROC_TIMEOUT_MARKER = b"=12e4}"  # paired with unique pre-login context when patching
 
 
 def patch_processing_timeout(text: bytes) -> bytes:
     """Raise in-app processing timeout 24s -> 120s (TranscriptionError toast)."""
     if PROC_TIMEOUT_RE.search(text):
-        text = PROC_TIMEOUT_RE.sub(PROC_TIMEOUT_BYPASS, text, count=1)
+        text = PROC_TIMEOUT_RE.sub(lambda m: m.group(0).replace(b"24e3", b"12e4"), text, count=1)
         print("raised processing timeout 24s -> 120s")
         return text
-    if b',ee=200,te=12e4}' in text or b',ee=200,te=12e4},' in text:
+    if PROC_TIMEOUT_MARKER in text:
         print("processing timeout: already 120s")
         return text
     # looser fallback
@@ -190,15 +189,72 @@ _UPDATER_OLD = b"async checkForUpdates(e=!1){if(this.updateState!==d.D9.AVAILABL
 _UPDATER_NEW = b"async checkForUpdates(e=!1){return;/*openflow-disable-updates*/if(this.updateState!==d.D9.AVAILABLE)"
 
 
+def _replace_method_body(text: bytes, signature: bytes) -> bytes:
+    """Replace the { ... } body of the method identified by signature with a no-op."""
+    idx = text.find(signature)
+    if idx == -1:
+        return text
+    open_brace = text.find(b"{", idx)
+    if open_brace == -1:
+        return text
+    depth = 0
+    in_string: bytes | None = None
+    escape = False
+    i = open_brace
+    while i < len(text):
+        c = text[i:i+1]
+        if in_string:
+            if escape:
+                escape = False
+            elif c == b"\\":
+                escape = True
+            elif c == in_string:
+                in_string = None
+            i += 1
+            continue
+        if c in (b'"', b"'", b"`"):
+            in_string = c
+            i += 1
+            continue
+        if c == b"{":
+            depth += 1
+        elif c == b"}":
+            depth -= 1
+            if depth == 0:
+                return text[:open_brace] + b"{/*openflow-disable-updates*/}" + text[i + 1:]
+        i += 1
+    return text
+
+
 def patch_disable_updates(text: bytes) -> bytes:
     """Disable Wispr auto-updater to prevent auto-update to unpatched versions."""
-    if UPDATER_MARKER in text:
-        print("auto-updater: already disabled")
-    elif _UPDATER_OLD in text:
+    if _UPDATER_OLD in text:
         text = text.replace(_UPDATER_OLD, _UPDATER_NEW, 1)
         print("auto-updater: disabled checkForUpdates")
+    elif UPDATER_MARKER in text:
+        print("auto-updater: checkForUpdates already disabled")
     else:
-        print("WARN: checkForUpdates pattern not found — updater may auto-update", file=sys.stderr)
+        print("WARN: checkForUpdates pattern not found - updater may auto-update", file=sys.stderr)
+
+    # Nerf the rest of the update manager so menu/manual update flows cannot
+    # trigger a download, install, or UI prompt either.
+    if b"openflow-disable-listeners" not in text:
+        text = _replace_method_body(
+            text,
+            b'setupListeners(){r.autoUpdater.on("checking-for-update",()=>this.setUpdateState(d.D9.CHECKING))',
+        )
+        text = _replace_method_body(
+            text,
+            b'handleDownloadAvailable(){const e=v.RA.prefs?.updateRetry',
+        )
+        text = _replace_method_body(
+            text,
+            b'async applyUpdate(){const e=r.app.getVersion(),t=v.RA.prefs?.updateRetry?.retryCount??0',
+        )
+        if b"{/*openflow-disable-updates*/}" in text:
+            print("auto-updater: disabled listeners / download / install flow")
+    else:
+        print("auto-updater: listeners already disabled")
     return text
 
 def patch(index_js: Path) -> None:
@@ -219,8 +275,7 @@ def verify_bytes(data: bytes) -> dict[str, bool]:
         "local gRPC override": b"Using local gRPC route override" in data
         or b"FLOW_GRPC_URL_OVERRIDE" in data,
         "timeout 60s": b"TRANSCRIPTION_TIMEOUT=6e4" in data,
-        "processing timeout 120s": b",ee=200,te=12e4" in data
-        or b"te=12e4" in data,
+        "processing timeout 120s": b"=12e4}" in data,
         "csp allows shim": CSP_MARKER in data
         or b'"http://127.0.0.1:18765"' in data,
         "csp allows frames": CSP_FRAME_MARKER in data,

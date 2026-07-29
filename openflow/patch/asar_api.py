@@ -11,7 +11,7 @@ REQUIRED_MARKERS = {
     "local HTTP": b"http://127.0.0.1:18765/environments/production/run_remote",
     "local gRPC override": b"Using local gRPC route override",
     "timeout 60s": b"TRANSCRIPTION_TIMEOUT=6e4",
-    "processing timeout 120s": b"te=12e4",
+    "processing timeout 120s": b"=12e4}",
     "csp connect-src": b"openflow-csp-shim",
     "csp frame-src": b"openflow-csp-frames",
     "auto-updater disabled": b"openflow-disable-updates",

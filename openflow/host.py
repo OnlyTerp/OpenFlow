@@ -23,6 +23,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+from openflow.patch.asar_api import newest_app_dir
+
 ROOT = Path(__file__).resolve().parent.parent  # install root (parent of openflow/)
 LOG_DIR = ROOT / "logs"
 HOST = os.environ.get("OPENFLOW_HOST", os.environ.get("WISPR_GROK_HOST", "127.0.0.1"))
@@ -172,25 +174,21 @@ def wait_health(seconds: float = 8.0) -> bool:
 
 
 def find_desktop_exe() -> Path | None:
-    """Locate the user's installed Wispr Flow Electron shell (not bundled here)."""
+    """Locate the user-installed Wispr Flow Electron shell (not bundled here)."""
     local = Path(os.environ.get("LOCALAPPDATA", ""))
-    candidates: list[Path] = []
     root = local / "WisprFlow"
-    if root.is_dir():
-        apps = sorted(
-            (p for p in root.glob("app-*") if p.is_dir()),
-            key=lambda p: p.name,
-        )
-        for app in reversed(apps):
-            candidates.append(app / "Wispr Flow.exe")
-        candidates.append(root / "Wispr Flow.exe")
-    for c in candidates:
-        try:
-            if c.is_file():
-                return c
-        except OSError:
-            continue
-    return None
+    if not root.is_dir():
+        return None
+    try:
+        app = newest_app_dir(root)
+        exe = app / "Wispr Flow.exe"
+        if exe.is_file():
+            return exe
+    except Exception:
+        pass
+    # Fallback to root stub if present.
+    fallback = root / "Wispr Flow.exe"
+    return fallback if fallback.is_file() else None
 
 
 def ui_running() -> bool:
