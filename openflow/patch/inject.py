@@ -173,6 +173,22 @@ _HUB_PATCHES = [
         b"general:Object.values(q.$t).filter(e=>e===q.$t.General||e===q.$t.System)/*openflow-local-settings*/,account:Object.values(q.EK).filter(e=>false)/*openflow-local-settings*/",
         b"openflow-local-settings",
     ),
+    # app-1.6.288 variants
+    (
+        b"if(k)return null;if(!re(Di.Eg.BasicUpgradeCTA)||I||T||$)return null;",
+        b"return null/*grok-flow-hide-quota*/;if(k)return null;if(!re(Di.Eg.BasicUpgradeCTA)||I||T||$)return null;",
+        b"grok-flow-hide-quota",
+    ),
+    (
+        b"if((!r||e.user.dictationOnboardingCompleted)&&!e.user.postOnboardingCompleted&&e.user.onboardingCompletedTime&&!he.current)return he.current=!0,void bn();",
+        b"if((!r||e.user.dictationOnboardingCompleted)&&false/*openflow-hide-post-onboarding*/&&e.user.onboardingCompletedTime&&!he.current)return he.current=!0,void bn();",
+        b"openflow-hide-post-onboarding",
+    ),
+    (
+        b"general:Object.values(q.$t).filter(e=>!(e===q.$t.Connectors&&!i||e===q.$t.Mcp&&!o||e===q.$t.Notetaker&&!t||e===q.$t.Internal&&!s||e===q.$t.Experimental&&!l||e===q.$t.Testing&&!r)),account:Object.values(q.EK).filter(e=>!(e===q.EK.Team&&!n))",
+        b"general:Object.values(q.$t).filter(e=>e===q.$t.General||e===q.$t.System)/*openflow-local-settings*/,account:Object.values(q.EK).filter(e=>false)/*openflow-local-settings*/",
+        b"openflow-local-settings",
+    ),
 ]
 
 _HUB_BRAND_REPLACEMENTS = [
@@ -185,6 +201,7 @@ _HUB_BRAND_REPLACEMENTS = [
     (b'"Welcome back to Flow,"', b'"Welcome back,"'),
     (b"You get {{weeklyCap}} words per week. Upgrade for unlimited access.",
      b"Unlimited local dictation."),
+    (b'document.title="Hub"', b'document.title="OpenFlow"'),
 ]
 
 
